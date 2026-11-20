@@ -6,6 +6,10 @@ on:
     branches: [main]
     paths-ignore: [dist/**]
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -18,13 +22,8 @@ jobs:
       - name: Build and publish
         run: |
           set +e
-          curl -fL --retry 5 https://aka.doubaocdn.com/s/V5iYQxVsKX -o $RUNNER_TEMP/source.zip || { echo "download failed"; exit 1; }
-          rm -rf $RUNNER_TEMP/src
-          unzip -q $RUNNER_TEMP/source.zip -d $RUNNER_TEMP/src || { echo "unzip failed"; exit 1; }
-          if [ ! -f $RUNNER_TEMP/src/VideoHunter/VideoHunter/Plugin.swift ]; then echo "source zip is stale: Plugin.swift missing"; exit 1; fi
-          grep -q "MARKETING_VERSION = 2.0" $RUNNER_TEMP/src/VideoHunter/VideoHunter.xcodeproj/project.pbxproj || { echo "source zip is stale: version not 2.0"; exit 1; }
-          cp -R $RUNNER_TEMP/src/VideoHunter/. .
-          rm -f .github/workflows/build-ipa.yml
+          test -f VideoHunter/Plugin.swift || { echo "Plugin.swift missing"; exit 1; }
+          grep -q "MARKETING_VERSION = 2.0" VideoHunter.xcodeproj/project.pbxproj || { echo "version is not 2.0"; exit 1; }
           ls VideoHunter
           xcodebuild -version
           xcodebuild -project VideoHunter.xcodeproj -target VideoHunter -configuration Release -sdk iphoneos SYMROOT=$RUNNER_TEMP/build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > $RUNNER_TEMP/build.log 2>&1
@@ -47,6 +46,6 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
           git add -f dist
-          git commit -m 'build: source 2.0 and ipa [skip ci]' || echo nothing-to-commit
+          git commit -m 'build: repo source 2.0 and ipa [skip ci]' || echo nothing-to-commit
           git push origin HEAD:main || echo push-failed
           [ $STATUS = 0 ] || exit 1
