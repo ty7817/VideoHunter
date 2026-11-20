@@ -589,10 +589,9 @@ struct PlayerScreen: View {
     private func scheduleControlHide() {
         hideWork?.cancel()
         guard isPlaying, errorText == nil else { return }
-        let work = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
+        let work = DispatchWorkItem {
             withAnimation(.easeOut(duration: 0.25)) {
-                self.showControls = false
+                showControls = false
             }
         }
         hideWork = work
@@ -602,10 +601,9 @@ struct PlayerScreen: View {
     // MARK: - 画中画 / 音频
 
     private func setupPictureInPicture(_ layer: AVPlayerLayer) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            if self.pipController == nil, AVPictureInPictureController.isPictureInPictureSupported() {
-                self.pipController = AVPictureInPictureController(playerLayer: layer)
+        DispatchQueue.main.async {
+            if pipController == nil, AVPictureInPictureController.isPictureInPictureSupported() {
+                pipController = AVPictureInPictureController(playerLayer: layer)
             }
         }
     }
