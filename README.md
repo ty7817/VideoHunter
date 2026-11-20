@@ -16,6 +16,7 @@
 | 四路识别 | ① DOM（`<video>`、`<source>`、`data-src` 等懒加载属性）② 网络请求（Hook `XMLHttpRequest` / `fetch`，按 Content-Type 判断）③ 页面内联脚本里的 m3u8 / mp4 直链 ④ `performance` 资源记录 |
 | 子框架覆盖 | 脚本注入 `forMainFrameOnly = false`，内嵌 iframe 里的播放器同样能抓到 |
 | 实时更新 | `MutationObserver` + 3 秒轮询，播放按钮点下后新产生的地址会自动进列表 |
+| 整站扫描 | 从当前页出发，先读 `sitemap.xml` 铺底，再按广度优先逐页打开站内链接（默认 60 页 / 3 层，可调），把每一页的视频汇总后按页分组展示 |
 | 去重排序 | 按 URL 去重，HLS → MP4 → 其他，最多保留 200 条；自动过滤 `.ts` / `.m4s` 等 HLS 分片 |
 | 内置播放 | AVPlayer 播放 HLS / MP4，自动带 `Referer`、`Origin`、`User-Agent`，减少 403；支持全屏、画中画、AirPlay |
 | 直接链接 | 地址栏粘贴 `.m3u8` / `.mp4` 时，拦下导航直接进播放器，不在网页里显示一堆文本 |
@@ -37,6 +38,9 @@ VideoHunter/
 │   ├── BrowserView.swift         # WKWebView 的 SwiftUI 封装
 │   ├── MediaSniffer.swift        # 消息接收、去重、排序、类型判断
 │   ├── MediaItem.swift           # 媒体数据模型
+│   ├── SiteCrawler.swift         # 整站扫描调度（隐藏 WKWebView + 队列）
+│   ├── SiteScanView.swift        # 整站扫描的设置 / 进度 / 结果页
+│   ├── MediaRowView.swift        # 视频列表通用行
 │   ├── PlayerView.swift          # AVPlayer 播放页
 │   ├── InjectedScript.swift      # 注入网页的识别脚本（核心）
 │   └── Info.plist                # ATS 允许 http、后台音频（画中画）
@@ -89,6 +93,14 @@ xcodebuild -project VideoHunter.xcodeproj -target VideoHunter \
 
 上报到原生后，`MediaSniffer` 去重、按类型排序，`MediaListSheet` 展示，点一条即用 AVPlayer 播放。
 
+### 整站扫描怎么工作
+
+1. 起一个隐藏的 `WKWebView`，注入同一套脚本，禁止自动播放，不占界面。
+2. 先请求站点的 `/sitemap.xml`（如果是索引文件就再取最多 3 个子 sitemap），把里面的页面地址塞进队列，最多 150 条。
+3. 之后从起始页开始广度优先遍历：每页等 0.8 秒让 JS 跑完，调用 `__vhRescan()` 再扫一遍，然后用 `__vhCollectLinks()` 取回该页的 `<a href>` 列表和直链视频。
+4. 链接按「层级浅优先 → 含 video/detail/episode 等关键词优先」排序，默认只走同一域名（可含子域名），去重后最多扫 60 页、3 层。
+5. 每页结果按 URL 全局去重，汇总成「页面 → 视频」两层结构；扫描过程可随时取消，已拿到的结果保留。
+
 ---
 
 ## 五、已知限制（重要）
@@ -99,7 +111,9 @@ xcodebuild -project VideoHunter.xcodeproj -target VideoHunter \
 - **需要登录 / 防盗链严格的站点**：已同步 Cookie 并附带 Referer/UA，但部分站点仍会 403，这属于对方服务端策略。
 - **首次打开可能识别为空**：很多站点要点击播放后才发起请求，先点一下页面里的播放按钮，再回列表点"重新扫描"。
 - **App Store 不会通过**：这类网页嗅探 + 播放器属于灰色地带，只适合自签自用，不要上传商店。
-- **本机未做真机编译验证**：开发环境是 Linux 云主机，没有 Xcode，无法在这里出 IPA。工程文件、plist、注入脚本都做了静态校验（pbxproj 可被解析库正常读取、Info.plist 可被 plistlib 解析、JS 通过 `node --check`、Swift 源文件通过 tree-sitter 语法解析），但真正的编译请在 Xcode 或上面的 Actions 里跑一次。
+- **整站扫描不是无限爬**：只跟随页面里的 `<a href>`，不解析 JS 里的路由跳转；默认 60 页 / 3 层，冷门页面可能扫不到。想覆盖更多就调高页数和层级，但耗时会线性增长。
+- **扫描依赖前台运行**：iOS 会在 App 进入后台后暂停网页加载，扫描期间请保持前台、别锁屏。
+- **编译验证**：当前版本已在 GitHub Actions 的 macOS-15 + Xcode 上真实编译通过（`BUILD SUCCEEDED`），产物是未签名 IPA。
 
 ---
 

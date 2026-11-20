@@ -281,6 +281,33 @@ enum InjectedScript {
     try { scanScripts(); fullScan(); } catch (e) {}
     return true;
   };
+
+  /* ---------- 8. 整站扫描时取页面链接 ---------- */
+  window.__vhCollectLinks = function (maxLinks) {
+    var result = {
+      links: [],
+      media: [],
+      title: (document.title || '').slice(0, 160),
+      url: String(location.href || '')
+    };
+    try {
+      var limit = (typeof maxLinks === 'number' && maxLinks > 0) ? maxLinks : 60;
+      var anchors = document.querySelectorAll('a[href]');
+      for (var i = 0; i < anchors.length && result.links.length < limit * 3; i++) {
+        var href = '';
+        try { href = anchors[i].href || ''; } catch (e) { href = ''; }
+        if (!href || !/^https?:/i.test(href)) { continue; }
+        if (MEDIA_RE.test(href) && !SEGMENT_RE.test(href) && !looksLikeSegment(href)) {
+          if (result.media.length < 80) {
+            result.media.push({ url: href, kind: guessKind(href, '') });
+          }
+          continue;
+        }
+        result.links.push(href);
+      }
+    } catch (e) {}
+    return JSON.stringify(result);
+  };
 })();
 """#
 }

@@ -36,6 +36,7 @@ final class BrowserController: NSObject, ObservableObject {
     private var snifferSubscription: AnyCancellable?
 
     var pageURLString: String? { webView.url?.absoluteString }
+    var pageURL: URL? { webView.url }
 
     // MARK: - 初始化
 

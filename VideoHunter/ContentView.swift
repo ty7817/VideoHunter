@@ -11,23 +11,38 @@ import Combine
 
 struct ContentView: View {
     @StateObject private var controller = BrowserController()
-    @State private var input = ""
+    @StateObject private var siteCrawler = SiteCrawler()
     @FocusState private var addressFocused: Bool
-    @State private var showList = false
+    @State private var activeSheet: ActiveSheet?
     @State private var toastText: String?
+
+    private enum ActiveSheet: String, Identifiable {
+        case pageList
+        case siteScan
+
+        var id: String { rawValue }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             topBar
             content
-            bottomBar
         }
         .background(Color(uiColor: .systemBackground))
         .fullScreenCover(item: $controller.directItem) { item in
             PlayerScreen(item: item, referer: controller.pageURLString)
         }
-        .sheet(isPresented: $showList) {
-            MediaListSheet(sniffer: controller.sniffer, pageURL: controller.pageURLString)
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .pageList:
+                MediaListSheet(sniffer: controller.sniffer, pageURL: controller.pageURLString)
+            case .siteScan:
+                SiteScanSheet(
+                    crawler: siteCrawler,
+                    startURL: controller.pageURL,
+                    pageTitle: controller.pageTitle
+                )
+            }
         }
         .overlay(alignment: .bottom) {
             toast
@@ -109,6 +124,10 @@ struct ContentView: View {
             } else {
                 Divider()
             }
+
+            if controller.hasLoadedPage {
+                actionRow
+            }
         }
         .background(.bar)
     }
@@ -137,7 +156,7 @@ struct ContentView: View {
                     .font(.headline)
                     .multilineTextAlignment(.center)
 
-                Text("会实时扫描页面里的 video 标签、网络请求和脚本中的媒体地址，识别到后可用内置播放器全屏播放，支持画中画。")
+                Text("会实时扫描页面里的 video 标签、网络请求和脚本中的媒体地址。点「整站扫描」还能顺着站内链接把整站的视频一次抓出来。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -177,31 +196,35 @@ struct ContentView: View {
 
     // MARK: - 底部工具栏
 
-    private var bottomBar: some View {
-        HStack {
+    private var actionRow: some View {
+        HStack(spacing: 8) {
+            Button {
+                activeSheet = .pageList
+            } label: {
+                chip(
+                    icon: "list.bullet.rectangle",
+                    text: controller.sniffer.items.isEmpty ? "本页视频" : "本页 \(controller.sniffer.items.count) 个"
+                )
+            }
+
+            Button {
+                activeSheet = .siteScan
+            } label: {
+                chip(icon: "globe", text: "整站扫描", highlighted: true)
+            }
+
             Button {
                 controller.rescan()
-                flash("已重新扫描页面")
+                flash("已重新扫描本页")
             } label: {
-                Label("重新扫描", systemImage: "viewfinder")
+                Image(systemName: "viewfinder")
                     .font(.footnote)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color(uiColor: .tertiarySystemFill)))
             }
-            .disabled(!controller.hasLoadedPage)
 
-            Spacer()
-
-            Button {
-                showList = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "list.bullet.rectangle")
-                    Text(controller.sniffer.items.isEmpty ? "视频列表" : "已发现 \(controller.sniffer.items.count) 个")
-                }
-                .font(.footnote.weight(.medium))
-            }
-            .disabled(!controller.hasLoadedPage)
-
-            Spacer()
+            Spacer(minLength: 0)
 
             Menu {
                 Button {
@@ -229,9 +252,27 @@ struct ContentView: View {
                     .font(.footnote)
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .buttonStyle(.borderless)
+    }
+
+    private func chip(icon: String, text: String, highlighted: Bool = false) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+            Text(text)
+        }
+        .font(.caption.weight(.medium))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Capsule().fill(
+                highlighted
+                    ? Color.accentColor.opacity(0.15)
+                    : Color(uiColor: .tertiarySystemFill)
+            )
+        )
+        .foregroundStyle(highlighted ? Color.accentColor : Color.primary)
     }
 
     // MARK: - 交互
@@ -379,43 +420,7 @@ struct MediaListSheet: View {
         Button {
             handleTap(item)
         } label: {
-            HStack(spacing: 12) {
-                Image(systemName: item.kind.symbolName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(tint(for: item))
-                    .frame(width: 34, height: 34)
-                    .background(
-                        tint(for: item).opacity(0.12),
-                        in: RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    )
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.fileName)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-
-                    HStack(spacing: 6) {
-                        Text(item.kind.label)
-                            .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(tint(for: item).opacity(0.15), in: Capsule())
-
-                        Text(item.host)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer(minLength: 6)
-
-                Image(systemName: item.playability == .native ? "play.circle.fill" : "arrow.up.right.circle")
-                    .font(.system(size: 22))
-                    .foregroundStyle(item.playability == .native ? Color.accentColor : Color.secondary)
-            }
-            .padding(.vertical, 4)
+            MediaRowView(item: item)
         }
         .buttonStyle(.plain)
     }
@@ -427,16 +432,6 @@ struct MediaListSheet: View {
         case .external, .inPage:
             externalItem = item
             showExternalDialog = true
-        }
-    }
-
-    private func tint(for item: MediaItem) -> Color {
-        switch item.kind {
-        case .hls: return .green
-        case .mp4: return .blue
-        case .dash: return .orange
-        case .webm: return .purple
-        case .other: return .gray
         }
     }
 }
