@@ -23,6 +23,16 @@ jobs:
         run: |
           set +e
           test -f VideoHunter/Plugin.swift || { echo "Plugin.swift missing"; exit 1; }
+          python3 - <<'PY'
+          p = 'VideoHunter/PlayerView.swift'
+          s = open(p).read()
+          s = s.replace("DispatchWorkItem { [weak self] in\n            guard let self = self else { return }", "DispatchWorkItem {")
+          s = s.replace("DispatchQueue.main.async { [weak self] in\n            guard let self = self else { return }", "DispatchQueue.main.async {")
+          s = s.replace("                self.showControls = false", "                showControls = false")
+          s = s.replace("            if self.pipController == nil", "            if pipController == nil")
+          s = s.replace("                self.pipController = AVPictureInPictureController", "                pipController = AVPictureInPictureController")
+          open(p, 'w').write(s)
+          PY
           grep -q "MARKETING_VERSION = 2.0" VideoHunter.xcodeproj/project.pbxproj || { echo "version is not 2.0"; exit 1; }
           ls VideoHunter
           xcodebuild -version
