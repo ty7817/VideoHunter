@@ -20,36 +20,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Import 2.1 source when missing
+      - name: Import 2.2 source if needed
         env:
-          SOURCE_URL: "https://aka.doubaocdn.com/s/z5GnXkNB12"
-          SOURCE_SHA: "b2ec37c19ede3366f70a302fb1b22f8327bf07580d210f739d1ae22bd04dca03"
+          SOURCE_URL: 'https://aka.doubaocdn.com/s/fnLntcn30h'
+          SOURCE_SHA: '9cd8666657a97b46d4edd6cd94c133844adfa4a760a9a300e4cf02660cee1519'
         run: |
           set -euo pipefail
-          if [ ! -f VideoHunter/ImageLibrary.swift ] || ! grep -q "onGoHome" VideoHunter/PlayerView.swift; then
-            echo "2.1 source marker missing, importing verified archive"
-            curl -fL --retry 5 --retry-delay 3 --max-time 180 "$SOURCE_URL" -o "$RUNNER_TEMP/source.zip"
-            echo "$SOURCE_SHA  $RUNNER_TEMP/source.zip" | shasum -a 256 -c -
-            unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
-            test -f "$RUNNER_TEMP/source/VideoHunter/ImageLibrary.swift"
-            test -f "$RUNNER_TEMP/source/VideoHunter/ImageViews.swift"
-            test -f "$RUNNER_TEMP/source/VideoHunter/RemoteImageLoader.swift"
-            grep -q "MARKETING_VERSION = 2.1" "$RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj"
-            grep -q "audiovisualBackgroundPlaybackPolicy" "$RUNNER_TEMP/source/VideoHunter/PlayerView.swift"
-            grep -q "onGoHome" "$RUNNER_TEMP/source/VideoHunter/PlayerView.swift"
-            grep -q "vhImage" "$RUNNER_TEMP/source/VideoHunter/InjectedScript.swift"
+          if ! grep -q 'MARKETING_VERSION = 2.2' VideoHunter.xcodeproj/project.pbxproj 2>/dev/null || ! grep -q 'PhotoLibrarySaver' VideoHunter/ImageViews.swift 2>/dev/null; then
+            echo '2.2 source marker missing, importing verified archive'
+            curl -fL --retry 5 --retry-delay 3 --max-time 180 $SOURCE_URL -o $RUNNER_TEMP/source.zip
+            echo $SOURCE_SHA  $RUNNER_TEMP/source.zip | shasum -a 256 -c -
+            unzip -q $RUNNER_TEMP/source.zip -d $RUNNER_TEMP/source
+            test -f $RUNNER_TEMP/source/VideoHunter/ImageViews.swift
+            test -f $RUNNER_TEMP/source/VideoHunter/RemoteImageLoader.swift
+            grep -q 'MARKETING_VERSION = 2.2' $RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj
+            grep -q 'PhotoLibrarySaver' $RUNNER_TEMP/source/VideoHunter/ImageViews.swift
+            grep -q 'AsyncLimiter' $RUNNER_TEMP/source/VideoHunter/RemoteImageLoader.swift
             rm -rf VideoHunter VideoHunter.xcodeproj scripts
-            cp -R "$RUNNER_TEMP/source/VideoHunter" .
-            cp -R "$RUNNER_TEMP/source/VideoHunter.xcodeproj" .
-            cp -R "$RUNNER_TEMP/source/scripts" .
-            cp "$RUNNER_TEMP/source/README.md" .
-            cp "$RUNNER_TEMP/source/.gitignore" .
+            cp -R $RUNNER_TEMP/source/VideoHunter .
+            cp -R $RUNNER_TEMP/source/VideoHunter.xcodeproj .
+            cp -R $RUNNER_TEMP/source/scripts .
+            cp $RUNNER_TEMP/source/README.md .
+            cp $RUNNER_TEMP/source/.gitignore .
           else
-            echo "repo already contains latest 2.1 source, building repo HEAD"
+            echo 'repo already contains 2.2 source, building repo HEAD'
           fi
-          grep -q "MARKETING_VERSION = 2.1" VideoHunter.xcodeproj/project.pbxproj || { echo "version is not 2.1"; exit 1; }
-          test -f VideoHunter/ImageLibrary.swift || { echo "ImageLibrary.swift missing"; exit 1; }
-          grep -q "onGoHome" VideoHunter/PlayerView.swift || { echo "player home hook missing"; exit 1; }
+          grep -q 'MARKETING_VERSION = 2.2' VideoHunter.xcodeproj/project.pbxproj || { echo 'version is not 2.2'; exit 1; }
+          test -f VideoHunter/ImageLibrary.swift || { echo 'ImageLibrary.swift missing'; exit 1; }
+          test -f VideoHunter/ImageViews.swift || { echo 'ImageViews.swift missing'; exit 1; }
+          test -f VideoHunter/RemoteImageLoader.swift || { echo 'RemoteImageLoader.swift missing'; exit 1; }
+          grep -q 'onGoHome' VideoHunter/PlayerView.swift || { echo 'player home hook missing'; exit 1; }
+          grep -q 'vhImage' VideoHunter/InjectedScript.swift || { echo 'image sniffer missing'; exit 1; }
+          grep -q 'PhotoLibrarySaver' VideoHunter/ImageViews.swift || { echo 'photo permission fix missing'; exit 1; }
+          grep -q 'AsyncLimiter' VideoHunter/RemoteImageLoader.swift || { echo 'image limiter missing'; exit 1; }
           ls VideoHunter
 
       - name: Build and publish
@@ -66,12 +69,12 @@ jobs:
           if [ $STATUS = 0 ]; then
             APP=$(find $RUNNER_TEMP/build -maxdepth 3 -name VideoHunter.app | head -1)
             echo app=$APP
-            test -n "$APP" || { echo "VideoHunter.app missing"; STATUS=1; echo 1 > dist/status.txt; }
+            test -n $APP || { echo 'VideoHunter.app missing'; STATUS=1; echo 1 > dist/status.txt; }
           fi
           if [ $STATUS = 0 ]; then
             rm -rf Payload
             mkdir -p Payload
-            cp -R "$APP" Payload/
+            cp -R $APP Payload/
             zip -qry dist/VideoHunter-unsigned.ipa Payload
           fi
           ls -lh dist
@@ -80,6 +83,6 @@ jobs:
           git add -A
           git add -f dist
           git rm -r --cached Payload >/dev/null 2>&1 || true
-          git commit -m 'build: repo source 2.1 and ipa [skip ci]' || echo nothing-to-commit
+          git commit -m 'build: 2.2 source and ipa [skip ci]' || echo nothing-to-commit
           git push origin HEAD:main || echo push-failed
           [ $STATUS = 0 ] || exit 1
