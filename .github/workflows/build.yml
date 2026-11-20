@@ -20,14 +20,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Import 2.1 source (first run only)
+      - name: Import 2.1 source when missing
         env:
-          SOURCE_URL: "https://aka.doubaocdn.com/s/fkcXvWcoJm"
-          SOURCE_SHA: "fc044c5e22838ce07066cf2664f61a95e1a43d17645aa29bcfa95566e39aa17d"
+          SOURCE_URL: "https://aka.doubaocdn.com/s/z5GnXkNB12"
+          SOURCE_SHA: "b2ec37c19ede3366f70a302fb1b22f8327bf07580d210f739d1ae22bd04dca03"
         run: |
           set -euo pipefail
-          if [ ! -f VideoHunter/ImageLibrary.swift ]; then
-            echo "2.1 source not in repo yet, importing verified archive"
+          if [ ! -f VideoHunter/ImageLibrary.swift ] || ! grep -q "onGoHome" VideoHunter/PlayerView.swift; then
+            echo "2.1 source marker missing, importing verified archive"
             curl -fL --retry 5 --retry-delay 3 --max-time 180 "$SOURCE_URL" -o "$RUNNER_TEMP/source.zip"
             echo "$SOURCE_SHA  $RUNNER_TEMP/source.zip" | shasum -a 256 -c -
             unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
@@ -36,6 +36,7 @@ jobs:
             test -f "$RUNNER_TEMP/source/VideoHunter/RemoteImageLoader.swift"
             grep -q "MARKETING_VERSION = 2.1" "$RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj"
             grep -q "audiovisualBackgroundPlaybackPolicy" "$RUNNER_TEMP/source/VideoHunter/PlayerView.swift"
+            grep -q "onGoHome" "$RUNNER_TEMP/source/VideoHunter/PlayerView.swift"
             grep -q "vhImage" "$RUNNER_TEMP/source/VideoHunter/InjectedScript.swift"
             rm -rf VideoHunter VideoHunter.xcodeproj scripts
             cp -R "$RUNNER_TEMP/source/VideoHunter" .
@@ -44,10 +45,11 @@ jobs:
             cp "$RUNNER_TEMP/source/README.md" .
             cp "$RUNNER_TEMP/source/.gitignore" .
           else
-            echo "repo already contains 2.1 source, building repo HEAD"
+            echo "repo already contains latest 2.1 source, building repo HEAD"
           fi
           grep -q "MARKETING_VERSION = 2.1" VideoHunter.xcodeproj/project.pbxproj || { echo "version is not 2.1"; exit 1; }
           test -f VideoHunter/ImageLibrary.swift || { echo "ImageLibrary.swift missing"; exit 1; }
+          grep -q "onGoHome" VideoHunter/PlayerView.swift || { echo "player home hook missing"; exit 1; }
           ls VideoHunter
 
       - name: Build and publish
