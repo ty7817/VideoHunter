@@ -23,6 +23,9 @@
 			1A0000000000000000000039 /* ThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000037 /* ThumbnailView.swift */; };
 			1A0000000000000000000043 /* Plugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000040 /* Plugin.swift */; };
 			1A0000000000000000000044 /* PluginListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000041 /* PluginListView.swift */; };
+			1A0000000000000000000048 /* ImageLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000045 /* ImageLibrary.swift */; };
+			1A0000000000000000000049 /* ImageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000046 /* ImageViews.swift */; };
+			1A000000000000000000004A /* RemoteImageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000047 /* RemoteImageLoader.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +47,9 @@
 			1A0000000000000000000037 /* ThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailView.swift; sourceTree = "<group>"; };
 			1A0000000000000000000040 /* Plugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Plugin.swift; sourceTree = "<group>"; };
 			1A0000000000000000000041 /* PluginListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginListView.swift; sourceTree = "<group>"; };
+			1A0000000000000000000045 /* ImageLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageLibrary.swift; sourceTree = "<group>"; };
+			1A0000000000000000000046 /* ImageViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViews.swift; sourceTree = "<group>"; };
+			1A0000000000000000000047 /* RemoteImageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteImageLoader.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +97,9 @@
 					1A0000000000000000000037 /* ThumbnailView.swift */,
 					1A0000000000000000000040 /* Plugin.swift */,
 					1A0000000000000000000041 /* PluginListView.swift */,
+					1A0000000000000000000045 /* ImageLibrary.swift */,
+					1A0000000000000000000046 /* ImageViews.swift */,
+					1A0000000000000000000047 /* RemoteImageLoader.swift */,
 				1A0000000000000000000019 /* Assets.xcassets */,
 			1A0000000000000000000018 /* Info.plist */,
 			);
@@ -181,6 +190,9 @@
 					1A0000000000000000000039 /* ThumbnailView.swift in Sources */,
 					1A0000000000000000000043 /* Plugin.swift in Sources */,
 					1A0000000000000000000044 /* PluginListView.swift in Sources */,
+					1A0000000000000000000048 /* ImageLibrary.swift in Sources */,
+					1A0000000000000000000049 /* ImageViews.swift in Sources */,
+					1A000000000000000000004A /* RemoteImageLoader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -310,7 +322,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = VideoHunter/Info.plist;
@@ -318,7 +330,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0;
+				MARKETING_VERSION = 2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.videohunter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -332,7 +344,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = VideoHunter/Info.plist;
@@ -340,7 +352,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0;
+				MARKETING_VERSION = 2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.videohunter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

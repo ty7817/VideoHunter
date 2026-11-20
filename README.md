@@ -19,7 +19,11 @@
 | 整站扫描 | 从当前页出发，先读 `sitemap.xml` 铺底，再按广度优先逐页打开站内链接（默认 60 页 / 3 层，可调），把每一页的视频汇总后按页分组展示 |
 | 并发提速 | 整站扫描用多个隐藏 WKWebView 同时开工（1～4 路可调，默认 3 路），并缩短单页等待；进度页实时显示并发路数、页/分钟 |
 | 插件系统 | 用户脚本插件：填网址正则，命中后注入自定义 JS，可增删改、启停、排序；内置视频增强 / 懒加载 / 直链记录三个模板；改完自动刷新当前页 |
-| 视频预览图 | 注入脚本读取 `<video poster>`、列表项 `<img>`、页面的 `og:image` / `twitter:image` / JSON-LD 缩略图，带 Referer/UA 下载并缓存，列表直接显示缩略图 |
+| 视频预览图 | 注入脚本读取 `<video poster>`、列表项 `<img>`、页面的 `og:image` / `twitter:image` / JSON-LD 缩略图；下载带 Cookie + Referer 多级重试，MP4 还会抽取首帧兜底，列表直接显示缩略图 |
+| 网页图片库 | 新增独立「网页图片」页：抓 `<img>` / `srcset` / `<picture>` / `<a>` 图片直链 / CSS 背景 / og:image，按截图、封面海报、商品图、插画、壁纸、头像、图标等自动分类，双列网格展示 |
+| 原图查看 | 点开图片进入全屏原图页，支持双指/双击缩放、拖动、保存到相册、复制链接、分享、Safari 打开 |
+| 回到主页 | 顶部地址栏左侧新增高亮「房子」按钮，一键停止加载并清空当前页的视频/图片识别结果 |
+| 后台播放 | 已配置后台音频 + `audiovisualBackgroundPlaybackPolicy`，锁屏/切后台继续播放；接入 Now Playing 与远程控制中心（播放、暂停、上一首/下一首、进度拖动） |
 | 自动分类 | 按链接路径、文件名、页面标题判断电影 / 剧集 / 动漫 / 综艺 / 短视频 / 音乐 / 其他，本页列表按分类分节，整站结果可切「按分类 / 按页面」 |
 | 去重排序 | 按 URL 去重，HLS → MP4 → 其他，最多保留 200 条；自动过滤 `.ts` / `.m4s` 等 HLS 分片 |
 | 内置播放 | AVPlayer 播放 HLS / MP4，自动带 `Referer`、`Origin`、`User-Agent`，减少 403；支持全屏、画中画、AirPlay |
@@ -50,10 +54,13 @@ VideoHunter/
 │   ├── MediaRowView.swift        # 视频列表通用行
 │   ├── Plugin.swift              # 用户脚本插件模型与存储
 │   ├── PluginListView.swift      # 插件管理 / 编辑器
-│   ├── PlayerView.swift          # 自绘播放界面（AVPlayerLayer + 控制条）
+│   ├── ImageLibrary.swift        # 图片模型、分类、图片嗅探器
+│   ├── ImageViews.swift          # 图片列表 / 原图详情 / 缩放
+│   ├── RemoteImageLoader.swift   # 带 Cookie/Referer 重试的图片下载器
+│   ├── PlayerView.swift          # 自绘播放界面（AVPlayerLayer + 控制条 + 后台播放）
 │   ├── InjectedScript.swift      # 注入网页的识别脚本（核心）
 │   └── Info.plist                # ATS 允许 http、后台音频（画中画）
-├── .github/workflows/build-ipa.yml  # 云端打包未签名 IPA
+├── .github/workflows/build.yml      # 云端打包未签名 IPA
 ├── scripts/build-ipa.sh             # macOS 本地一键打包
 └── README.md
 ```
@@ -65,7 +72,7 @@ VideoHunter/
 ### 方式 A：GitHub Actions（没有 Mac 也能出 IPA）
 
 1. 把整个 `VideoHunter` 目录推到 GitHub 仓库（public / private 都行）。
-2. 打开仓库 **Actions** 页，选 **Build IPA (unsigned)**，点 **Run workflow**。
+2. 打开仓库 **Actions** 页，选 **Build IPA**，点 **Run workflow**。
 3. 跑完后在该次运行的 **Artifacts** 里下载 `VideoHunter-unsigned-ipa`，解压得到 `VideoHunter-unsigned.ipa`。
 4. 用全能签 / Sideloadly / AltStore 等工具签名安装（需要你自己的证书或 Apple ID）。
 
@@ -131,7 +138,7 @@ xcodebuild -project VideoHunter.xcodeproj -target VideoHunter \
 - **扫描依赖前台运行**：iOS 会在 App 进入后台后暂停网页加载，扫描期间请保持前台、别锁屏。
 - **预览图可能显示不出来**：部分站点对图片做了防盗链或需要登录 Cookie，下载失败时会回落到类型图标；`blob:`、画布渲染的视频也没有可用的封面图。
 - **分类是启发式的**：靠 URL 和标题关键词判断，命名不规范的站点可能分错，可在 `MediaCategory.swift` 的 `rules` 里补关键词。
-- **编译验证**：当前版本（2.0 / Build 4）已在 GitHub Actions 的 macOS-15 + Xcode 上真实编译通过（`BUILD SUCCEEDED`），产物是未签名 IPA。
+- **编译验证**：当前版本（2.1 / Build 5）已在 GitHub Actions 的 macOS-15 + Xcode 上真实编译通过（`BUILD SUCCEEDED`），产物是未签名 IPA。
 
 ---
 

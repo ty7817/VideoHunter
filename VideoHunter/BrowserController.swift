@@ -29,11 +29,13 @@ final class BrowserController: NSObject, ObservableObject {
     @Published var lastError: String?
 
     let sniffer = MediaSniffer()
+    let imageSniffer = ImageSniffer()
 
     private(set) var webView: WKWebView!
 
     private var observations: [NSKeyValueObservation] = []
     private var snifferSubscription: AnyCancellable?
+    private var imageSnifferSubscription: AnyCancellable?
     private var pluginObserver: NSObjectProtocol?
 
     var pageURLString: String? { webView.url?.absoluteString }
@@ -52,6 +54,7 @@ final class BrowserController: NSObject, ObservableObject {
 
         let userContentController = WKUserContentController()
         userContentController.add(sniffer, name: MediaSniffer.handlerName)
+        userContentController.add(imageSniffer, name: ImageSniffer.handlerName)
         configuration.userContentController = userContentController
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -84,6 +87,9 @@ final class BrowserController: NSObject, ObservableObject {
         snifferSubscription = sniffer.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }
+        imageSnifferSubscription = imageSniffer.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
     }
 
     deinit {
@@ -92,7 +98,9 @@ final class BrowserController: NSObject, ObservableObject {
         }
         observations.forEach { $0.invalidate() }
         snifferSubscription?.cancel()
+        imageSnifferSubscription?.cancel()
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: MediaSniffer.handlerName)
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: ImageSniffer.handlerName)
         webView?.stopLoading()
     }
 
@@ -181,10 +189,12 @@ final class BrowserController: NSObject, ObservableObject {
         webView.stopLoading()
         webView.loadHTMLString("", baseURL: nil)
         sniffer.reset()
+        imageSniffer.reset()
         hasLoadedPage = false
         addressText = ""
         pageTitle = ""
         directItem = nil
+        lastError = nil
         canGoBack = false
         canGoForward = false
         isLoading = false
@@ -197,6 +207,7 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     func clearWebsiteData() {
+        RemoteImageLoader.clearMemory()
         let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
         WKWebsiteDataStore.default().removeData(ofTypes: dataTypes, modifiedSince: .distantPast) { }
     }
@@ -279,7 +290,9 @@ extension BrowserController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         // 主文档开始渲染，说明页面已经切换，清空上一页的识别结果。
         sniffer.reset()
+        imageSniffer.reset()
         syncState()
+        syncCookies()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

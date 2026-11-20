@@ -16,3 +16,6 @@ xcuserdata/
 .build/
 Packages/
 Package.resolved
+
+# IPA staging
+Payload/

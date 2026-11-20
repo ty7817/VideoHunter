@@ -10,6 +10,7 @@ import SwiftUI
 import Combine
 import AVKit
 import AVFoundation
+import MediaPlayer
 import UIKit
 
 // MARK: - 画面层
@@ -64,6 +65,7 @@ struct PlayerScreen: View {
     let playlist: [MediaItem]
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var index: Int
     @State private var player: AVPlayer?
@@ -82,6 +84,7 @@ struct PlayerScreen: View {
     @State private var observations: [NSKeyValueObservation] = []
     @State private var pipController: AVPictureInPictureController?
     @State private var hideWork: DispatchWorkItem?
+    @State private var remoteTargets: [(MPRemoteCommand, Any)] = []
 
     init(item: MediaItem, referer: String?, playlist: [MediaItem] = []) {
         self.item = item
@@ -158,6 +161,20 @@ struct PlayerScreen: View {
         .onDisappear(perform: stop)
         .onChange(of: index) { _ in
             switchToCurrent()
+        }
+        .onChange(of: scenePhase) { phase in
+            switch phase {
+            case .background:
+                if isPlaying, let player {
+                    player.play()
+                    player.rate = rate
+                }
+                updateNowPlayingInfo()
+            case .active:
+                updateNowPlayingInfo()
+            default:
+                break
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { note in
             guard let finished = note.object as? AVPlayerItem, finished === player?.currentItem else { return }
@@ -402,12 +419,14 @@ struct PlayerScreen: View {
         guard player == nil else { return }
         UIApplication.shared.isIdleTimerDisabled = true
         activateAudioSession()
+        startRemoteControls()
         buildPlayer(for: currentItem)
         scheduleControlHide()
     }
 
     private func stop() {
         teardownPlayer()
+        stopRemoteControls()
         UIApplication.shared.isIdleTimerDisabled = false
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
     }
@@ -434,6 +453,7 @@ struct PlayerScreen: View {
         newPlayer.play()
         newPlayer.rate = rate
         isPlaying = true
+        updateNowPlayingInfo()
     }
 
     private func teardownPlayer() {
@@ -452,6 +472,7 @@ struct PlayerScreen: View {
         player = nil
         isPlaying = false
         isBuffering = false
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         if let pip = pipController, pip.isPictureInPictureActive {
             pip.stopPictureInPicture()
         }
@@ -481,6 +502,7 @@ struct PlayerScreen: View {
                     if seconds.isFinite && seconds > 0 {
                         self.duration = seconds
                     }
+                    self.updateNowPlayingInfo()
                 default:
                     break
                 }
@@ -519,6 +541,7 @@ struct PlayerScreen: View {
                     self.duration = seconds
                 }
             }
+            self.updateNowPlayingInfo()
         }
         timeObserver = observer
     }
@@ -538,6 +561,7 @@ struct PlayerScreen: View {
             player.rate = rate
             isPlaying = true
         }
+        updateNowPlayingInfo()
         revealControls()
     }
 
@@ -547,6 +571,7 @@ struct PlayerScreen: View {
         let target = min(max(seconds, 0), max(upper, 0))
         player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
         position = target
+        updateNowPlayingInfo()
     }
 
     private func setRate(_ value: Float) {
@@ -555,6 +580,7 @@ struct PlayerScreen: View {
         if isPlaying {
             player.rate = value
         }
+        updateNowPlayingInfo()
         revealControls()
     }
 
@@ -564,6 +590,7 @@ struct PlayerScreen: View {
         } else {
             isPlaying = false
             position = duration
+            updateNowPlayingInfo()
             revealControls()
         }
     }
@@ -617,6 +644,110 @@ struct PlayerScreen: View {
         }
     }
 
+    // MARK: - 后台播放与锁屏控制
+
+    private func updateNowPlayingInfo() {
+        guard let player = player, player.currentItem != nil else {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            return
+        }
+        var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+        let media = currentItem
+        info[MPMediaItemPropertyTitle] = media.fileName
+        info[MPMediaItemPropertyArtist] = media.pageTitle.isEmpty ? "视频猎手" : media.pageTitle
+        info[MPMediaItemPropertyAlbumTitle] = media.category.label
+        info[MPMediaItemPropertyPlaybackDuration] = duration
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = position
+        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? Double(rate) : 0
+        info[MPNowPlayingInfoPropertyMediaType] = NSNumber(value: MPNowPlayingInfoMediaType.video.rawValue)
+        info[MPNowPlayingInfoPropertyExternalContentIdentifier] = media.url.absoluteString
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    private func startRemoteControls() {
+        guard remoteTargets.isEmpty else { return }
+        UIApplication.shared.beginReceivingRemoteControlEvents()
+        let center = MPRemoteCommandCenter.shared()
+        center.playCommand.isEnabled = true
+        center.pauseCommand.isEnabled = true
+        center.togglePlayPauseCommand.isEnabled = true
+        center.nextTrackCommand.isEnabled = true
+        center.previousTrackCommand.isEnabled = true
+        center.changePlaybackPositionCommand.isEnabled = true
+
+        let play = center.playCommand.addTarget { _ in
+            DispatchQueue.main.async {
+                guard let player = self.player else { return }
+                if self.duration > 0, self.position >= self.duration - 0.3 {
+                    self.seek(to: 0)
+                }
+                player.play()
+                player.rate = self.rate
+                self.isPlaying = true
+                self.updateNowPlayingInfo()
+            }
+            return .success
+        }
+
+        let pause = center.pauseCommand.addTarget { _ in
+            DispatchQueue.main.async {
+                self.player?.pause()
+                self.isPlaying = false
+                self.updateNowPlayingInfo()
+            }
+            return .success
+        }
+
+        let toggle = center.togglePlayPauseCommand.addTarget { _ in
+            DispatchQueue.main.async {
+                self.togglePlayback()
+            }
+            return .success
+        }
+
+        let next = center.nextTrackCommand.addTarget { _ in
+            DispatchQueue.main.async {
+                if self.canGoNext { self.index += 1 }
+            }
+            return .success
+        }
+
+        let previous = center.previousTrackCommand.addTarget { _ in
+            DispatchQueue.main.async {
+                if self.canGoPrevious { self.index -= 1 }
+            }
+            return .success
+        }
+
+        let positionChange = center.changePlaybackPositionCommand.addTarget { event in
+            guard let event = event as? MPChangePlaybackPositionCommandEvent else {
+                return .commandFailed
+            }
+            DispatchQueue.main.async {
+                self.seek(to: event.positionTime)
+            }
+            return .success
+        }
+
+        remoteTargets = [
+            (center.playCommand, play),
+            (center.pauseCommand, pause),
+            (center.togglePlayPauseCommand, toggle),
+            (center.nextTrackCommand, next),
+            (center.previousTrackCommand, previous),
+            (center.changePlaybackPositionCommand, positionChange)
+        ]
+    }
+
+    private func stopRemoteControls() {
+        for (command, token) in remoteTargets {
+            command.removeTarget(token)
+        }
+        remoteTargets.removeAll()
+        UIApplication.shared.endReceivingRemoteControlEvents()
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+    }
+
     private func activateAudioSession() {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .moviePlayback, options: [])
@@ -659,12 +790,17 @@ struct PlayerScreen: View {
                 headers["Origin"] = "\(scheme)://\(host)"
             }
         }
+        if let cookies = HTTPCookieStorage.shared.cookies(for: item.url), !cookies.isEmpty {
+            let fields = HTTPCookie.requestHeaderFields(with: cookies)
+            if let cookie = fields["Cookie"] { headers["Cookie"] = cookie }
+        }
 
         let options: [String: Any] = ["AVURLAssetHTTPHeaderFieldsKey": headers]
         let asset = AVURLAsset(url: item.url, options: options)
         let player = AVPlayer(playerItem: AVPlayerItem(asset: asset))
         player.allowsExternalPlayback = true
         player.preventsDisplaySleepDuringVideoPlayback = true
+        player.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
         return player
     }
 }

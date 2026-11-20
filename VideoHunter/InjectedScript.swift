@@ -17,13 +17,196 @@ enum InjectedScript {
 
   var MEDIA_RE = /(\.m3u8|\.m3u|\.mpd|\.mp4|\.m4v|\.mov|\.webm|\.flv|\.ogv|\.mp3|\.m4a)(\?|#|$)/i;
   var SEGMENT_RE = /(\.ts|\.m4s|\.cmfv|\.cmfa|\.aac)(\?|#|$)/i;
+  var IMAGE_RE = /(\.jpg|\.jpeg|\.png|\.webp|\.gif|\.avif|\.bmp|\.heic)(\?|#|$)/i;
 
   var seen = Object.create(null);
+  var imageSeen = Object.create(null);
+  var imageCount = 0;
 
   function post(payload) {
     try {
       var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.vhMedia;
       if (bridge) { bridge.postMessage(payload); }
+    } catch (e) {}
+  }
+
+  function postImage(payload) {
+    try {
+      var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.vhImage;
+      if (bridge) { bridge.postMessage(payload); }
+    } catch (e) {}
+  }
+
+  function imageContext(node) {
+    try {
+      var parts = [];
+      if (node) {
+        if (node.className && typeof node.className === 'string') { parts.push(node.className); }
+        if (node.id) { parts.push(node.id); }
+        var parent = node.parentElement;
+        if (parent) {
+          if (parent.className && typeof parent.className === 'string') { parts.push(parent.className); }
+          if (parent.id) { parts.push(parent.id); }
+        }
+        var figure = node.closest ? node.closest('figure, a, picture') : null;
+        if (figure && figure.className && typeof figure.className === 'string') { parts.push(figure.className); }
+      }
+      return parts.join(' ').slice(0, 160);
+    } catch (e) { return ''; }
+  }
+
+  function parseSrcset(value) {
+    try {
+      var best = '';
+      var bestScore = -1;
+      var parts = String(value || '').split(',');
+      for (var i = 0; i < parts.length; i++) {
+        var piece = parts[i].trim();
+        if (!piece) { continue; }
+        var fields = piece.split(/\s+/);
+        var candidate = fields[0];
+        if (!candidate) { continue; }
+        var score = 1;
+        if (fields[1]) {
+          var token = fields[1].toLowerCase();
+          var number = parseFloat(token) || 1;
+          if (token.charAt(token.length - 1) === 'w') { score = number; }
+          else if (token.charAt(token.length - 1) === 'x') { score = number * 1000; }
+        }
+        if (score > bestScore) { bestScore = score; best = candidate; }
+      }
+      return best;
+    } catch (e) { return ''; }
+  }
+
+  function bestImageSource(node) {
+    try {
+      if (!node) { return ''; }
+      var setValue = '';
+      if (node.getAttribute) {
+        setValue = node.getAttribute('srcset') || node.getAttribute('data-srcset') || '';
+      }
+      var fromSet = parseSrcset(setValue);
+      if (fromSet) { return fromSet; }
+      var src = node.currentSrc || node.src || '';
+      if (!src && node.getAttribute) {
+        var attrs = ['data-src', 'data-original', 'data-lazy-src', 'data-url', 'data-image', 'data-big', 'data-original-src'];
+        for (var i = 0; i < attrs.length; i++) {
+          var value = node.getAttribute(attrs[i]);
+          if (value) { src = value; break; }
+        }
+      }
+      return src || '';
+    } catch (e) { return ''; }
+  }
+
+  function pushImage(raw, node, via, alt, width, height, context) {
+    try {
+      var abs = absolute(raw);
+      if (!abs || !/^https?:/i.test(abs)) { return; }
+      if (imageSeen[abs] || imageCount >= 400) { return; }
+      imageSeen[abs] = true;
+      imageCount++;
+
+      var w = Number(width) || 0;
+      var h = Number(height) || 0;
+      try {
+        if (!w && node && node.naturalWidth) { w = node.naturalWidth; }
+        if (!h && node && node.naturalHeight) { h = node.naturalHeight; }
+      } catch (e) {}
+
+      postImage({
+        url: abs,
+        width: Math.max(0, Math.round(w)),
+        height: Math.max(0, Math.round(h)),
+        alt: String(alt || '').slice(0, 160),
+        title: (document.title || '').slice(0, 120),
+        frame: String(location.href || '').slice(0, 500),
+        via: via || 'img',
+        context: context || imageContext(node)
+      });
+    } catch (e) {}
+  }
+
+  function scanImages() {
+    try {
+      var metas = document.querySelectorAll('meta[property="og:image"], meta[name="og:image"], meta[name="twitter:image"], meta[property="twitter:image"]');
+      for (var m = 0; m < metas.length && m < 6; m++) {
+        var content = metas[m].getAttribute('content') || '';
+        if (content) { pushImage(content, null, 'meta', document.title, 0, 0, 'meta og:image'); }
+      }
+    } catch (e) {}
+
+    try {
+      var scripts = document.querySelectorAll('script[type="application/ld+json"]');
+      for (var j = 0; j < scripts.length && j < 4; j++) {
+        var text = (scripts[j].textContent || '').replace(/\\\//g, '/');
+        if (text.indexOf('image') < 0 && text.indexOf('thumbnailUrl') < 0) { continue; }
+        var pattern = /"(?:image|thumbnailUrl|contentUrl)"\s*:\s*"([^"]+)"/g;
+        var hit = null;
+        var guard = 0;
+        while ((hit = pattern.exec(text)) !== null && guard < 6) {
+          guard++;
+          if (hit[1]) { pushImage(hit[1], null, 'jsonld', document.title, 0, 0, 'json-ld'); }
+        }
+      }
+    } catch (e) {}
+
+    try {
+      var images = document.querySelectorAll('img');
+      var limit = Math.min(images.length, 240);
+      for (var i = 0; i < limit; i++) {
+        var node = images[i];
+        var src = bestImageSource(node);
+        if (!src) { continue; }
+        if (/^(data|blob):/i.test(src)) { continue; }
+        var alt = '';
+        try { alt = node.alt || node.getAttribute('data-alt') || node.title || ''; } catch (e) {}
+        var w = 0;
+        var h = 0;
+        try { w = node.naturalWidth || node.width || 0; h = node.naturalHeight || node.height || 0; } catch (e) {}
+        if (w > 0 && w <= 2 && h > 0 && h <= 2) { continue; }
+        pushImage(src, node, 'img', alt, w, h, imageContext(node));
+      }
+    } catch (e) {}
+
+    try {
+      var sources = document.querySelectorAll('picture source');
+      for (var p = 0; p < sources.length && p < 80; p++) {
+        var set = sources[p].getAttribute('srcset') || sources[p].getAttribute('data-srcset') || '';
+        var best = parseSrcset(set);
+        if (best) { pushImage(best, null, 'srcset', '', 0, 0, 'picture'); }
+      }
+    } catch (e) {}
+
+    try {
+      var videos = document.querySelectorAll('video[poster], video[data-poster], video[data-cover]');
+      for (var v = 0; v < videos.length && v < 80; v++) {
+        var poster = videos[v].poster || videos[v].getAttribute('poster') || videos[v].getAttribute('data-poster') || videos[v].getAttribute('data-cover') || '';
+        if (poster) { pushImage(poster, null, 'poster', '视频封面', 0, 0, 'video poster'); }
+      }
+    } catch (e) {}
+
+    try {
+      var anchors = document.querySelectorAll('a[href]');
+      for (var a = 0; a < anchors.length && a < 120; a++) {
+        var href = '';
+        try { href = anchors[a].href || ''; } catch (e) { href = ''; }
+        if (!href || !/^https?:/i.test(href)) { continue; }
+        if (IMAGE_RE.test(href)) { pushImage(href, anchors[a], 'anchor', '', 0, 0, imageContext(anchors[a])); }
+      }
+    } catch (e) {}
+
+    try {
+      var styled = document.querySelectorAll('[style*="background"]');
+      var scanLimit = Math.min(styled.length, 80);
+      for (var b = 0; b < scanLimit; b++) {
+        var style = styled[b].getAttribute('style') || '';
+        var match = style.match(/url\(["']?([^"')]+)["']?\)/);
+        if (match && match[1] && !/^(data|blob):/i.test(match[1])) {
+          pushImage(match[1], styled[b], 'css', '', 0, 0, imageContext(styled[b]));
+        }
+      }
     } catch (e) {}
   }
 
@@ -97,9 +280,22 @@ enum InjectedScript {
       if (!abs) { return; }
       if (SEGMENT_RE.test(abs)) { return; }
       if (strict && looksLikeSegment(abs)) { return; }
-      if (seen[abs]) { return; }
-      seen[abs] = true;
       var image = thumb ? (absolute(thumb) || '') : pageImage();
+      if (seen[abs]) {
+        if (image && !seen[abs].thumb) {
+          seen[abs].thumb = image;
+          post({
+            url: abs,
+            kind: kind || guessKind(abs, ''),
+            via: via || 'dom',
+            title: (document.title || '').slice(0, 120),
+            frame: String(location.href || '').slice(0, 500),
+            thumb: image
+          });
+        }
+        return;
+      }
+      seen[abs] = { thumb: image || '' };
       post({
         url: abs,
         kind: kind || guessKind(abs, ''),
@@ -277,12 +473,14 @@ enum InjectedScript {
     scanTimer = setTimeout(function () {
       scanTimer = null;
       scanDom();
+      scanImages();
       scanPerformance();
     }, 400);
   }
 
   function fullScan() {
     scanDom();
+    scanImages();
     scanPerformance();
   }
 
@@ -325,7 +523,7 @@ enum InjectedScript {
       if (!node) { return ''; }
       var inner = node.querySelector ? node.querySelector('img') : null;
       if (inner) {
-        var src = inner.currentSrc || inner.src || '';
+        var src = bestImageSource(inner);
         if (src) { return src; }
       }
       var parent = node.parentElement;
@@ -333,7 +531,7 @@ enum InjectedScript {
         var images = parent.querySelectorAll('img');
         if (images.length > 0) {
           var first = images[0];
-          var url = first.currentSrc || first.src || '';
+          var url = bestImageSource(first);
           if (url) { return url; }
         }
         parent = parent.parentElement;

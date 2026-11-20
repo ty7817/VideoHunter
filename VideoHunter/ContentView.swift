@@ -19,6 +19,7 @@ struct ContentView: View {
 
     private enum ActiveSheet: String, Identifiable {
         case pageList
+        case imageList
         case siteScan
         case plugins
 
@@ -38,6 +39,8 @@ struct ContentView: View {
             switch sheet {
             case .pageList:
                 MediaListSheet(sniffer: controller.sniffer, pageURL: controller.pageURLString)
+            case .imageList:
+                ImageListSheet(sniffer: controller.imageSniffer, pageURL: controller.pageURLString)
             case .siteScan:
                 SiteScanSheet(
                     crawler: siteCrawler,
@@ -67,7 +70,23 @@ struct ContentView: View {
 
     private var topBar: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
+            HStack(spacing: 9) {
+                Button {
+                    controller.goHome()
+                    input = ""
+                    activeSheet = nil
+                    flash("已回到主页")
+                } label: {
+                    Image(systemName: "house.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 31, height: 31)
+                        .background(
+                            Circle().fill(Color.accentColor.opacity(0.12))
+                        )
+                }
+                .accessibilityLabel("回到主页")
+
                 Button {
                     controller.goBack()
                 } label: {
@@ -216,8 +235,17 @@ struct ContentView: View {
                 activeSheet = .pageList
             } label: {
                 chip(
-                    icon: "list.bullet.rectangle",
-                    text: controller.sniffer.items.isEmpty ? "本页视频" : "本页 \(controller.sniffer.items.count) 个"
+                    icon: "play.rectangle.on.rectangle",
+                    text: controller.sniffer.items.isEmpty ? "视频" : "视频 \(controller.sniffer.items.count)"
+                )
+            }
+
+            Button {
+                activeSheet = .imageList
+            } label: {
+                chip(
+                    icon: "photo.on.rectangle",
+                    text: controller.imageSniffer.items.isEmpty ? "图片" : "图片 \(controller.imageSniffer.items.count)"
                 )
             }
 
