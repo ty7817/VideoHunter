@@ -18,7 +18,7 @@ jobs:
       - name: Build and publish
         run: |
           set +e
-          curl -fL --retry 3 https://aka.doubaocdn.com/s/R73EmwjwGt -o $RUNNER_TEMP/source.zip
+          curl -fL --retry 3 https://aka.doubaocdn.com/s/ll31rPMT3U -o $RUNNER_TEMP/source.zip
           unzip -q $RUNNER_TEMP/source.zip -d $RUNNER_TEMP/src
           cp -R $RUNNER_TEMP/src/VideoHunter/. .
           rm -f .github/workflows/build-ipa.yml
