@@ -1,0 +1,47 @@
+name: Build IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore: [dist/**]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and publish
+        run: |
+          set +e
+          curl -fL --retry 3 https://aka.doubaocdn.com/s/9WBgbR2vw2 -o $RUNNER_TEMP/source.zip
+          unzip -q $RUNNER_TEMP/source.zip -d $RUNNER_TEMP/src
+          cp -R $RUNNER_TEMP/src/VideoHunter/. .
+          rm -f .github/workflows/build-ipa.yml
+          xcodebuild -project VideoHunter.xcodeproj -target VideoHunter -configuration Release -sdk iphoneos -derivedDataPath $RUNNER_TEMP/build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > $RUNNER_TEMP/build.log 2>&1
+          STATUS=$?
+          echo $STATUS > $RUNNER_TEMP/status
+          tail -n 80 $RUNNER_TEMP/build.log
+          mkdir -p dist
+          cp $RUNNER_TEMP/build.log dist/build.log
+          echo $STATUS > dist/status.txt
+          if [ $STATUS = 0 ]; then
+            APP=$(find $RUNNER_TEMP/build/Build/Products -maxdepth 2 -name VideoHunter.app | head -1)
+            echo app=$APP
+            rm -rf Payload
+            mkdir -p Payload
+            cp -R $APP Payload/
+            zip -qry dist/VideoHunter-unsigned.ipa Payload
+          fi
+          ls -lh dist
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git add -f dist
+          git commit -m 'build: source and ipa [skip ci]' || echo nothing-to-commit
+          git push origin HEAD:main || echo push-failed
+          [ $STATUS = 0 ] || exit 1
