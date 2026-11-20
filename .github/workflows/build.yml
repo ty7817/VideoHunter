@@ -18,7 +18,7 @@ jobs:
       - name: Build and publish
         run: |
           set +e
-          curl -fL --retry 3 https://aka.doubaocdn.com/s/ll31rPMT3U -o $RUNNER_TEMP/source.zip
+          curl -fL --retry 3 https://aka.doubaocdn.com/s/EQ4597yToE -o $RUNNER_TEMP/source.zip
           unzip -q $RUNNER_TEMP/source.zip -d $RUNNER_TEMP/src
           cp -R $RUNNER_TEMP/src/VideoHunter/. .
           rm -f .github/workflows/build-ipa.yml
@@ -44,6 +44,6 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
           git add -f dist
-          git commit -m 'build: source 1.1 and ipa [skip ci]' || echo nothing-to-commit
+          git commit -m 'build: source 1.2 and ipa [skip ci]' || echo nothing-to-commit
           git push origin HEAD:main || echo push-failed
           [ $STATUS = 0 ] || exit 1
