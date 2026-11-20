@@ -1,2 +1,235 @@
-2026-11-20 08:16:01.680 xcodebuild[5639:21557] Writing error result bundle to /var/folders/9d/l02zfgrs7c16twd3wbpdmhkc0000gn/T/ResultBundle_2026-20-11_08-16-0001.xcresult
-xcodebuild: error: The flag -scheme, -testProductsPath, or -xctestrun is required when specifying -derivedDataPath.
+Command line invocation:
+    /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/xcodebuild -project VideoHunter.xcodeproj -target VideoHunter -configuration Release -sdk iphoneos SYMROOT=/Users/runner/work/_temp/build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+    CODE_SIGNING_REQUIRED = NO
+    SDKROOT = iphoneos18.5
+    SYMROOT = /Users/runner/work/_temp/build
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (1 target)
+    Target 'VideoHunter' in project 'VideoHunter' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: e0374a158cf813602066d873b1a4266d
+Build description path: /Users/runner/work/_temp/build/XCBuildData/e0374a158cf813602066d873b1a4266d.xcbuilddata
+ClangStatCache /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk /var/folders/2s/vty41l455yv698g4xkgfv7z00000gn/C/com.apple.DeveloperTools/16.4-16F6/Xcode/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache
+    cd /Users/runner/work/VideoHunter/VideoHunter/VideoHunter.xcodeproj
+    /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -o /var/folders/2s/vty41l455yv698g4xkgfv7z00000gn/C/com.apple.DeveloperTools/16.4-16F6/Xcode/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache
+
+CreateBuildDirectory /Users/runner/work/_temp/build
+    cd /Users/runner/work/VideoHunter/VideoHunter/VideoHunter.xcodeproj
+    builtin-create-build-directory /Users/runner/work/_temp/build
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter-a45d7e3f429fec9ab9c8e3704d6dd6eb-VFS-iphoneos/all-product-headers.yaml
+    cd /Users/runner/work/VideoHunter/VideoHunter/VideoHunter.xcodeproj
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter-a45d7e3f429fec9ab9c8e3704d6dd6eb-VFS-iphoneos/all-product-headers.yaml
+
+CreateBuildDirectory /Users/runner/work/_temp/build/Release-iphoneos
+    cd /Users/runner/work/VideoHunter/VideoHunter/VideoHunter.xcodeproj
+    builtin-create-build-directory /Users/runner/work/_temp/build/Release-iphoneos
+
+CreateBuildDirectory /Users/runner/work/_temp/build/EagerLinkingTBDs/Release-iphoneos
+    cd /Users/runner/work/VideoHunter/VideoHunter/VideoHunter.xcodeproj
+    builtin-create-build-directory /Users/runner/work/_temp/build/EagerLinkingTBDs/Release-iphoneos
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter.hmap (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter.hmap
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter.DependencyStaticMetadataFileList (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter.DependencyMetadataFileList (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-project-headers.hmap (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-project-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-own-target-headers.hmap (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-own-target-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-generated-files.hmap (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-generated-files.hmap
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-all-target-headers.hmap (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-all-target-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-all-non-framework-target-headers.hmap (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-all-non-framework-target-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter_const_extract_protocols.json (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.SwiftFileList (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.SwiftFileList
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.SwiftConstValuesFileList (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.LinkFileList (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.LinkFileList
+
+WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter-OutputFileMap.json (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter-OutputFileMap.json
+
+MkDir /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    /bin/mkdir -p /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app
+
+MkDir /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/thinned (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    /bin/mkdir -p /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/thinned
+
+MkDir /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/unthinned (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    /bin/mkdir -p /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/unthinned
+
+GenerateAssetSymbols /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/Assets.xcassets (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/actool /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/Assets.xcassets --compile /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app --output-format human-readable-text --notices --warnings --export-dependency-info /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_dependencies --output-partial-info-plist /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_generated_info.plist --app-icon AppIcon --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 16.0 --platform iphoneos --bundle-identifier com.example.videohunter --generate-swift-asset-symbols /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/GeneratedAssetSymbols.swift --generate-objc-asset-symbols /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/GeneratedAssetSymbols.h --generate-asset-symbol-index /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/* com.apple.actool.compilation-results */
+/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/GeneratedAssetSymbols.h
+/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/GeneratedAssetSymbols.swift
+
+
+CompileAssetCatalogVariant thinned /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/Assets.xcassets (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/actool /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/Assets.xcassets --compile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/thinned --output-format human-readable-text --notices --warnings --export-dependency-info /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_dependencies_thinned --output-partial-info-plist /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_generated_info.plist_thinned --app-icon AppIcon --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 16.0 --platform iphoneos
+/* com.apple.actool.document.notices */
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/Assets.xcassets:./AppIcon.appiconset/[][ipad][76x76][][][1x][][][][]: notice: 76x76@1x app icons only apply to iPad apps targeting releases of iOS prior to 10.0.
+/* com.apple.actool.compilation-results */
+/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_generated_info.plist_thinned
+/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/thinned/AppIcon60x60@2x.png
+/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/thinned/AppIcon76x76@2x~ipad.png
+/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/thinned/Assets.car
+
+
+SwiftDriver VideoHunter normal arm64 com.apple.xcode.tools.swift.compiler (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-SwiftDriver -- /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name VideoHunter -O -whole-module-optimization -enforce-exclusivity\=checked @/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.SwiftFileList -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -target arm64-apple-ios16.0 -g -Xfrontend -serialize-debugging-options -swift-version 5 -I /Users/runner/work/_temp/build/Release-iphoneos -F /Users/runner/work/_temp/build/Release-iphoneos -emit-localized-strings -emit-localized-strings-path /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64 -c -num-threads 3 -Xcc -ivfsstatcache -Xcc /var/folders/2s/vty41l455yv698g4xkgfv7z00000gn/C/com.apple.DeveloperTools/16.4-16F6/Xcode/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache -output-file-map /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftmodule -validate-clang-modules-once -clang-build-session-file /var/folders/2s/vty41l455yv698g4xkgfv7z00000gn/C/org.llvm.clang/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter_const_extract_protocols.json -Xcc -iquote -Xcc /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-generated-files.hmap -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-own-target-headers.hmap -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-all-target-headers.hmap -Xcc -iquote -Xcc /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-project-headers.hmap -Xcc -I/Users/runner/work/_temp/build/Release-iphoneos/include -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources-normal/arm64 -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/arm64 -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources -emit-objc-header -emit-objc-header-path /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter-Swift.h -working-directory /Users/runner/work/VideoHunter/VideoHunter -no-emit-module-separately-wmo
+
+SwiftCompile normal arm64 Compiling\ VideoHunterApp.swift,\ ContentView.swift,\ BrowserController.swift,\ BrowserView.swift,\ MediaSniffer.swift,\ MediaItem.swift,\ PlayerView.swift,\ InjectedScript.swift,\ GeneratedAssetSymbols.swift /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/VideoHunterApp.swift /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/ContentView.swift /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/BrowserController.swift /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/BrowserView.swift /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/MediaSniffer.swift /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/MediaItem.swift /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/PlayerView.swift /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/InjectedScript.swift /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'VideoHunter' from project 'VideoHunter')
+
+CompileSwift normal arm64 (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    
+
+SwiftDriver\ Compilation VideoHunter normal arm64 com.apple.xcode.tools.swift.compiler (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-Swift-Compilation -- /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name VideoHunter -O -whole-module-optimization -enforce-exclusivity\=checked @/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.SwiftFileList -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -target arm64-apple-ios16.0 -g -Xfrontend -serialize-debugging-options -swift-version 5 -I /Users/runner/work/_temp/build/Release-iphoneos -F /Users/runner/work/_temp/build/Release-iphoneos -emit-localized-strings -emit-localized-strings-path /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64 -c -num-threads 3 -Xcc -ivfsstatcache -Xcc /var/folders/2s/vty41l455yv698g4xkgfv7z00000gn/C/com.apple.DeveloperTools/16.4-16F6/Xcode/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache -output-file-map /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftmodule -validate-clang-modules-once -clang-build-session-file /var/folders/2s/vty41l455yv698g4xkgfv7z00000gn/C/org.llvm.clang/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter_const_extract_protocols.json -Xcc -iquote -Xcc /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-generated-files.hmap -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-own-target-headers.hmap -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-all-target-headers.hmap -Xcc -iquote -Xcc /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-project-headers.hmap -Xcc -I/Users/runner/work/_temp/build/Release-iphoneos/include -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources-normal/arm64 -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/arm64 -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources -emit-objc-header -emit-objc-header-path /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter-Swift.h -working-directory /Users/runner/work/VideoHunter/VideoHunter -no-emit-module-separately-wmo
+
+SwiftDriverJobDiscovery normal arm64 Compiling VideoHunterApp.swift, ContentView.swift, BrowserController.swift, BrowserView.swift, MediaSniffer.swift, MediaItem.swift, PlayerView.swift, InjectedScript.swift, GeneratedAssetSymbols.swift (in target 'VideoHunter' from project 'VideoHunter')
+
+SwiftDriver\ Compilation\ Requirements VideoHunter normal arm64 com.apple.xcode.tools.swift.compiler (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name VideoHunter -O -whole-module-optimization -enforce-exclusivity\=checked @/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.SwiftFileList -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -target arm64-apple-ios16.0 -g -Xfrontend -serialize-debugging-options -swift-version 5 -I /Users/runner/work/_temp/build/Release-iphoneos -F /Users/runner/work/_temp/build/Release-iphoneos -emit-localized-strings -emit-localized-strings-path /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64 -c -num-threads 3 -Xcc -ivfsstatcache -Xcc /var/folders/2s/vty41l455yv698g4xkgfv7z00000gn/C/com.apple.DeveloperTools/16.4-16F6/Xcode/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache -output-file-map /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftmodule -validate-clang-modules-once -clang-build-session-file /var/folders/2s/vty41l455yv698g4xkgfv7z00000gn/C/org.llvm.clang/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter_const_extract_protocols.json -Xcc -iquote -Xcc /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-generated-files.hmap -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-own-target-headers.hmap -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-all-target-headers.hmap -Xcc -iquote -Xcc /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter-project-headers.hmap -Xcc -I/Users/runner/work/_temp/build/Release-iphoneos/include -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources-normal/arm64 -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/arm64 -Xcc -I/Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources -emit-objc-header -emit-objc-header-path /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter-Swift.h -working-directory /Users/runner/work/VideoHunter/VideoHunter -no-emit-module-separately-wmo
+
+SwiftMergeGeneratedHeaders /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/VideoHunter-Swift.h /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter-Swift.h (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-swiftHeaderTool -arch arm64 /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter-Swift.h -o /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/VideoHunter-Swift.h
+
+Copy /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.swiftmodule /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftmodule (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftmodule /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.swiftmodule
+
+Copy /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.swiftdoc /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftdoc (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftdoc /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.swiftdoc
+
+Copy /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.abi.json /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.abi.json (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.abi.json /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.abi.json
+
+Copy /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftsourceinfo (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftsourceinfo /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo
+
+Ld /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/VideoHunter normal (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios16.0 -isysroot /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -Os -L/Users/runner/work/_temp/build/EagerLinkingTBDs/Release-iphoneos -L/Users/runner/work/_temp/build/Release-iphoneos -F/Users/runner/work/_temp/build/EagerLinkingTBDs/Release-iphoneos -F/Users/runner/work/_temp/build/Release-iphoneos -filelist /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.LinkFileList -Xlinker -rpath -Xlinker @executable_path/Frameworks -dead_strip -Xlinker -object_path_lto -Xlinker /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter_lto.o -Xlinker -dependency_info -Xlinker /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphoneos -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftmodule -o /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/VideoHunter
+
+LinkAssetCatalog /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/Assets.xcassets (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-linkAssetCatalog --thinned /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/thinned --thinned-dependencies /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_dependencies_thinned --thinned-info-plist-content /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_generated_info.plist_thinned --unthinned /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/unthinned --unthinned-dependencies /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_dependencies_unthinned --unthinned-info-plist-content /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_generated_info.plist_unthinned --output /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app --plist-output /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_generated_info.plist
+note: Emplaced /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/AppIcon60x60@2x.png (in target 'VideoHunter' from project 'VideoHunter')
+note: Emplaced /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/Assets.car (in target 'VideoHunter' from project 'VideoHunter')
+note: Emplaced /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/AppIcon76x76@2x~ipad.png (in target 'VideoHunter' from project 'VideoHunter')
+
+ProcessInfoPlistFile /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/Info.plist /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/Info.plist (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-infoPlistUtility /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/PkgInfo -expandbuildsettings -format binary -platform iphoneos -additionalcontentfile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_generated_info.plist -requiredArchitecture arm64 -o /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/Info.plist
+
+ExtractAppIntentsMetadata (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name VideoHunter --sdk-root /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk --xcode-version 16F6 --platform-family iOS --deployment-target 16.0 --bundle-identifier com.example.videohunter --output /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app --target-triple arm64-apple-ios16.0 --binary-file /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/VideoHunter --dependency-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter_dependency_info.dat --stringsdata-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.SwiftFileList --metadata-file-list /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter.DependencyMetadataFileList --static-metadata-file-list /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter.DependencyStaticMetadataFileList --swift-const-vals-list /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-11-20 08:19:13.267 appintentsmetadataprocessor[3431:13272] Starting appintentsmetadataprocessor export
+2026-11-20 08:19:13.277 appintentsmetadataprocessor[3431:13272] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+CopySwiftLibs /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/VideoHunter --scan-folder /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/Frameworks --scan-folder /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/PlugIns --scan-folder /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/SystemExtensions --scan-folder /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/Extensions --platform iphoneos --toolchain /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+Ignoring --strip-bitcode because --sign was not passed
+
+GenerateDSYMFile /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app.dSYM /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/VideoHunter (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/dsymutil /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/VideoHunter -o /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app.dSYM
+
+AppIntentsSSUTraining (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsnltrainingprocessor --infoplist-path /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/Info.plist --temp-dir-path /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/ssu --bundle-id com.example.videohunter --product-path /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app --extracted-metadata-path /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/Metadata.appintents --metadata-file-list /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter.DependencyMetadataFileList --archive-ssu-assets
+2026-11-20 08:19:13.343 appintentsnltrainingprocessor[3460:13352] Parsing options for appintentsnltrainingprocessor
+2026-11-20 08:19:13.349 appintentsnltrainingprocessor[3460:13352] No AppShortcuts found - Skipping.
+
+RegisterExecutionPolicyException /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-RegisterExecutionPolicyException /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app
+
+Validate /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-validationUtility /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app -validate-for-store -infoplist-subpath Info.plist
+
+Touch /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    /usr/bin/touch -c /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app
+
+** BUILD SUCCEEDED **
+
