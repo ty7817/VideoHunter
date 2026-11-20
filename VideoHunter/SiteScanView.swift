@@ -55,7 +55,11 @@ struct SiteScanSheet: View {
         }
         .interactiveDismissDisabled(crawler.isRunning)
         .fullScreenCover(item: $playing) { item in
-            PlayerScreen(item: item, referer: item.frameURL ?? startURL?.absoluteString)
+            PlayerScreen(
+                item: item,
+                referer: item.frameURL ?? startURL?.absoluteString,
+                playlist: allItems.filter { $0.playability == .native }
+            )
         }
         .confirmationDialog(
             "这个链接无法在内置播放器里播放",
@@ -167,6 +171,19 @@ struct SiteScanSheet: View {
             }
 
             Section {
+                Picker("并发路数", selection: $crawler.concurrency) {
+                    ForEach(1...4, id: \.self) { count in
+                        Text("\(count) 路").tag(count)
+                    }
+                }
+                .pickerStyle(.segmented)
+            } header: {
+                Text("扫描速度")
+            } footer: {
+                Text("同时打开几个页面抓取。默认 3 路，速度大约是单路的 2～3 倍；调得越高越吃内存和流量。扫描期间固定生效。")
+            }
+
+            Section {
                 Button {
                     if let url = startURL {
                         crawler.start(from: url)
@@ -213,6 +230,23 @@ struct SiteScanSheet: View {
                         .foregroundStyle(.secondary)
                 }
 
+                HStack(spacing: 6) {
+                    Label("\(crawler.activeWorkers) 路并发", systemImage: "bolt.horizontal.circle")
+                    Text("·")
+                    Text("\(crawler.pagesPerMinute) 页/分钟")
+                    if crawler.sitemapCount > 0 {
+                        Text("·")
+                        Text("sitemap \(crawler.sitemapCount) 页")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Text(crawler.statusText)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+
                 Text(crawler.currentURL)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -229,7 +263,7 @@ struct SiteScanSheet: View {
                 if crawler.pages.isEmpty {
                     VStack(spacing: 10) {
                         ProgressView()
-                        Text("正在逐页查找视频…")
+                        Text("正在并发扫描页面…")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -290,6 +324,7 @@ struct SiteScanSheet: View {
                     stat(title: "页面", value: "\(crawler.visitedCount)")
                     stat(title: "视频", value: "\(crawler.foundCount)")
                     stat(title: "耗时", value: "\(crawler.elapsedSeconds)s")
+                    stat(title: "均速", value: "\(crawler.pagesPerMinute)页/分")
                 }
                 .padding(.vertical, 4)
             }

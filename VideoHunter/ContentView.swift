@@ -20,6 +20,7 @@ struct ContentView: View {
     private enum ActiveSheet: String, Identifiable {
         case pageList
         case siteScan
+        case plugins
 
         var id: String { rawValue }
     }
@@ -43,6 +44,8 @@ struct ContentView: View {
                     startURL: controller.pageURL,
                     pageTitle: controller.pageTitle
                 )
+            case .plugins:
+                PluginListView()
             }
         }
         .overlay(alignment: .bottom) {
@@ -170,14 +173,24 @@ struct ContentView: View {
                 }
                 .padding(.top, 2)
 
-                Button {
-                    input = BrowserController.demoURL
-                    openURL()
-                } label: {
-                    Label("用示例 HLS 流测试", systemImage: "play.circle")
-                        .font(.footnote)
+                HStack(spacing: 10) {
+                    Button {
+                        input = BrowserController.demoURL
+                        openURL()
+                    } label: {
+                        Label("示例 HLS", systemImage: "play.circle")
+                            .font(.footnote)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        activeSheet = .plugins
+                    } label: {
+                        Label("插件管理", systemImage: "puzzlepiece.extension")
+                            .font(.footnote)
+                    }
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
                 .padding(.top, 4)
             }
             .padding(.vertical, 48)
@@ -236,6 +249,11 @@ struct ContentView: View {
                         controller.desktopUserAgent ? "切换为移动版 UA" : "切换为桌面版 UA",
                         systemImage: "safari"
                     )
+                }
+                Button {
+                    activeSheet = .plugins
+                } label: {
+                    Label("插件管理", systemImage: "puzzlepiece.extension")
                 }
                 Button {
                     controller.clearWebsiteData()
@@ -393,7 +411,7 @@ struct MediaListSheet: View {
         }
         .presentationDetents([.medium, .large])
         .fullScreenCover(item: $playing) { item in
-            PlayerScreen(item: item, referer: pageURL)
+            PlayerScreen(item: item, referer: pageURL, playlist: playableQueue)
         }
         .confirmationDialog(
             "这个链接无法在内置播放器里播放",
@@ -410,6 +428,10 @@ struct MediaListSheet: View {
         } message: { item in
             Text(item.playability.hint)
         }
+    }
+
+    private var playableQueue: [MediaItem] {
+        groups.flatMap { $0.items }.filter { $0.playability == .native }
     }
 
     private struct CategoryGroup: Identifiable {

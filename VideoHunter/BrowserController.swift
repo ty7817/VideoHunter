@@ -34,6 +34,7 @@ final class BrowserController: NSObject, ObservableObject {
 
     private var observations: [NSKeyValueObservation] = []
     private var snifferSubscription: AnyCancellable?
+    private var pluginObserver: NSObjectProtocol?
 
     var pageURLString: String? { webView.url?.absoluteString }
     var pageURL: URL? { webView.url }
@@ -50,13 +51,6 @@ final class BrowserController: NSObject, ObservableObject {
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
 
         let userContentController = WKUserContentController()
-        userContentController.addUserScript(
-            WKUserScript(
-                source: InjectedScript.source,
-                injectionTime: .atDocumentStart,
-                forMainFrameOnly: false
-            )
-        )
         userContentController.add(sniffer, name: MediaSniffer.handlerName)
         configuration.userContentController = userContentController
 
@@ -70,6 +64,20 @@ final class BrowserController: NSObject, ObservableObject {
         }
         self.webView = webView
 
+        applyUserScripts()
+
+        pluginObserver = NotificationCenter.default.addObserver(
+            forName: .vhPluginsChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            self.applyUserScripts()
+            if self.hasLoadedPage {
+                self.webView.reload()
+            }
+        }
+
         setupObservers()
 
         // 让 ContentView 能感知 sniffer.items 的变化。
@@ -79,10 +87,29 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     deinit {
+        if let observer = pluginObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         observations.forEach { $0.invalidate() }
         snifferSubscription?.cancel()
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: MediaSniffer.handlerName)
         webView?.stopLoading()
+    }
+
+    /// 重新装载内置嗅探脚本和用户插件脚本；插件改动后调用它会立即生效。
+    private func applyUserScripts() {
+        let controller = webView.configuration.userContentController
+        controller.removeAllUserScripts()
+        controller.addUserScript(
+            WKUserScript(
+                source: InjectedScript.source,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false
+            )
+        )
+        for script in PluginStore.shared.userScripts() {
+            controller.addUserScript(script)
+        }
     }
 
     private func setupObservers() {

@@ -2,70 +2,196 @@
 //  PlayerView.swift
 //  VideoHunter
 //
-//  内置播放器。HLS / MP4 走 AVPlayer，并带上 Referer / UA，尽量减少 403。
+//  自绘播放界面：AVPlayerLayer + 自定义控制条，支持倍速、画面填充、
+//  手势快进、自动隐藏控制条、画中画、AirPlay 和播放队列。
 //
 
 import SwiftUI
+import Combine
 import AVKit
+import AVFoundation
 import UIKit
 
-struct PlayerViewController: UIViewControllerRepresentable {
-    let player: AVPlayer
+// MARK: - 画面层
 
-    func makeUIViewController(context: Context) -> AVPlayerViewController {
-        let controller = AVPlayerViewController()
-        controller.player = player
-        controller.showsPlaybackControls = true
-        controller.allowsPictureInPicturePlayback = true
-        controller.canStartPictureInPictureAutomaticallyFromInline = true
-        controller.videoGravity = .resizeAspect
-        return controller
-    }
+final class PlayerLayerContainer: UIView {
+    override class var layerClass: AnyClass { AVPlayerLayer.self }
 
-    func updateUIViewController(_ uiViewController: AVPlayerViewController, context: Context) {
-        if uiViewController.player !== player {
-            uiViewController.player = player
-        }
+    var playerLayer: AVPlayerLayer {
+        layer as! AVPlayerLayer
     }
 }
+
+struct PlayerSurface: UIViewRepresentable {
+    let player: AVPlayer
+    let gravity: AVLayerVideoGravity
+    let onLayerReady: (AVPlayerLayer) -> Void
+
+    func makeUIView(context: Context) -> PlayerLayerContainer {
+        let view = PlayerLayerContainer()
+        view.backgroundColor = .black
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = gravity
+        onLayerReady(view.playerLayer)
+        return view
+    }
+
+    func updateUIView(_ view: PlayerLayerContainer, context: Context) {
+        if view.playerLayer.player !== player {
+            view.playerLayer.player = player
+        }
+        view.playerLayer.videoGravity = gravity
+    }
+}
+
+struct AirPlayButton: UIViewRepresentable {
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let view = AVRoutePickerView()
+        view.tintColor = .white
+        view.activeTintColor = UIColor.systemBlue
+        view.prioritizesVideoDevices = true
+        return view
+    }
+
+    func updateUIView(_ view: AVRoutePickerView, context: Context) {}
+}
+
+// MARK: - 播放页
 
 struct PlayerScreen: View {
     let item: MediaItem
     let referer: String?
+    let playlist: [MediaItem]
 
     @Environment(\.dismiss) private var dismiss
 
+    @State private var index: Int
     @State private var player: AVPlayer?
+    @State private var isPlaying = false
+    @State private var isBuffering = false
+    @State private var duration: Double = 0
+    @State private var position: Double = 0
+    @State private var isScrubbing = false
+    @State private var rate: Float = 1.0
+    @State private var fillScreen = false
+    @State private var showControls = true
     @State private var errorText: String?
-    @State private var statusObservation: NSKeyValueObservation?
     @State private var didCopy = false
+
+    @State private var timeObserver: Any?
+    @State private var observations: [NSKeyValueObservation] = []
+    @State private var pipController: AVPictureInPictureController?
+    @State private var hideWork: DispatchWorkItem?
+
+    init(item: MediaItem, referer: String?, playlist: [MediaItem] = []) {
+        self.item = item
+        self.referer = referer
+        let queue = playlist.isEmpty ? [item] : playlist
+        self.playlist = queue
+        let start = queue.firstIndex(where: { $0.id == item.id }) ?? 0
+        _index = State(initialValue: start)
+    }
+
+    private var currentItem: MediaItem {
+        guard !playlist.isEmpty else { return item }
+        let safeIndex = min(max(index, 0), playlist.count - 1)
+        return playlist[safeIndex]
+    }
+
+    private var canGoPrevious: Bool { index > 0 }
+    private var canGoNext: Bool { index + 1 < playlist.count }
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
             if let player = player {
-                PlayerViewController(player: player)
-                    .ignoresSafeArea()
+                PlayerSurface(
+                    player: player,
+                    gravity: fillScreen ? .resizeAspectFill : .resizeAspect,
+                    onLayerReady: setupPictureInPicture
+                )
+                .ignoresSafeArea()
             } else {
                 ProgressView()
                     .tint(.white)
             }
 
-            VStack(spacing: 0) {
-                topBar
-                Spacer()
-                if let errorText = errorText {
-                    errorCard(errorText)
+            // 手势层：双击播放/暂停，横向拖动快进快退，单击呼出/收起控制条。
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) {
+                    togglePlayback()
                 }
-                Spacer()
+                .onTapGesture {
+                    toggleControls()
+                }
+                .gesture(
+                    DragGesture(minimumDistance: 24)
+                        .onEnded { value in
+                            let horizontal = abs(value.translation.width)
+                            let vertical = abs(value.translation.height)
+                            guard horizontal > vertical else { return }
+                            let delta = Double(value.translation.width) / 6.0
+                            seek(to: position + delta)
+                            revealControls()
+                        }
+                )
+
+            if let errorText = errorText {
+                errorCard(errorText)
+            }
+
+            if isBuffering && errorText == nil {
+                ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.3)
+            }
+
+            if showControls || errorText != nil {
+                controlsLayer
+                    .transition(.opacity)
             }
         }
+        .statusBarHidden(true)
         .onAppear(perform: start)
         .onDisappear(perform: stop)
+        .onChange(of: index) { _ in
+            switchToCurrent()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { note in
+            guard let finished = note.object as? AVPlayerItem, finished === player?.currentItem else { return }
+            handlePlaybackEnd()
+        }
     }
 
-    // MARK: - 顶部栏
+    // MARK: - 控制层
+
+    private var controlsLayer: some View {
+        VStack(spacing: 0) {
+            topBar
+            Spacer()
+            transportRow
+            Spacer()
+            bottomBar
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .foregroundStyle(.white)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.6),
+                    Color.black.opacity(0.05),
+                    Color.black.opacity(0.05),
+                    Color.black.opacity(0.8)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
+    }
 
     private var topBar: some View {
         HStack(spacing: 12) {
@@ -79,41 +205,168 @@ struct PlayerScreen: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.fileName)
+                Text(currentItem.fileName)
                     .font(.footnote.weight(.semibold))
                     .lineLimit(1)
-                Text("\(item.kind.label) · \(item.host)")
+                Text("\(currentItem.category.label) · \(currentItem.kind.label) · \(currentItem.host)")
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.65))
+                    .foregroundStyle(.white.opacity(0.7))
                     .lineLimit(1)
             }
 
             Spacer(minLength: 8)
 
             Button {
-                UIPasteboard.general.string = item.url.absoluteString
+                UIPasteboard.general.string = currentItem.url.absoluteString
                 didCopy = true
+                revealControls()
             } label: {
                 Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
                     .font(.system(size: 14, weight: .semibold))
                     .frame(width: 34, height: 34)
                     .background(.ultraThinMaterial, in: Circle())
             }
+
+            Menu {
+                Button {
+                    UIApplication.shared.open(currentItem.url)
+                } label: {
+                    Label("在 Safari 中打开", systemImage: "safari")
+                }
+                Button {
+                    reload()
+                } label: {
+                    Label("重新加载", systemImage: "arrow.clockwise")
+                }
+                if canGoNext {
+                    Button {
+                        index += 1
+                    } label: {
+                        Label("播放下一个", systemImage: "forward.end")
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 34, height: 34)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
         }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 16)
         .padding(.top, 8)
-        .padding(.bottom, 20)
-        .background(
-            LinearGradient(
-                colors: [Color.black.opacity(0.65), Color.clear],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
     }
 
-    // MARK: - 错误提示
+    private var transportRow: some View {
+        HStack(spacing: 44) {
+            Button {
+                if canGoPrevious { index -= 1 }
+            } label: {
+                Image(systemName: "backward.end.fill")
+                    .font(.system(size: 22, weight: .semibold))
+            }
+            .opacity(canGoPrevious ? 1 : 0.25)
+            .disabled(!canGoPrevious)
+
+            Button {
+                togglePlayback()
+            } label: {
+                Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.system(size: 62, weight: .regular))
+                    .shadow(color: .black.opacity(0.4), radius: 8)
+            }
+
+            Button {
+                if canGoNext { index += 1 }
+            } label: {
+                Image(systemName: "forward.end.fill")
+                    .font(.system(size: 22, weight: .semibold))
+            }
+            .opacity(canGoNext ? 1 : 0.25)
+            .disabled(!canGoNext)
+        }
+    }
+
+    private var bottomBar: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Text(Self.timeText(position))
+                    .font(.caption2.monospacedDigit())
+                    .frame(width: 44, alignment: .leading)
+
+                Slider(
+                    value: Binding(
+                        get: { min(max(position, 0), max(duration, 1)) },
+                        set: { position = $0 }
+                    ),
+                    in: 0...max(duration, 1),
+                    onEditingChanged: { editing in
+                        isScrubbing = editing
+                        if !editing {
+                            seek(to: position)
+                        }
+                        revealControls()
+                    }
+                )
+                .tint(.white)
+
+                Text(Self.timeText(duration))
+                    .font(.caption2.monospacedDigit())
+                    .frame(width: 44, alignment: .trailing)
+            }
+
+            HStack(spacing: 22) {
+                Menu {
+                    ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { value in
+                        Button {
+                            setRate(Float(value))
+                        } label: {
+                            HStack {
+                                Text(Self.speedText(Float(value)))
+                                if rate == Float(value) {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Text(Self.speedText(rate))
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(.ultraThinMaterial, in: Capsule())
+                }
+
+                Button {
+                    fillScreen.toggle()
+                    revealControls()
+                } label: {
+                    Image(systemName: fillScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        .font(.footnote.weight(.semibold))
+                }
+
+                Button {
+                    togglePictureInPicture()
+                    revealControls()
+                } label: {
+                    Image(systemName: "pip")
+                        .font(.footnote.weight(.semibold))
+                }
+
+                AirPlayButton()
+                    .frame(width: 26, height: 26)
+
+                Spacer()
+
+                if playlist.count > 1 {
+                    Text("\(index + 1) / \(playlist.count)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+            }
+        }
+        .padding(.bottom, 12)
+    }
+
+    // MARK: - 错误卡片
 
     private func errorCard(_ message: String) -> some View {
         VStack(spacing: 14) {
@@ -124,62 +377,245 @@ struct PlayerScreen: View {
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.9))
                 .multilineTextAlignment(.center)
+                .lineLimit(4)
+
             HStack(spacing: 10) {
-                Button("重新加载", action: reload)
+                Button("重新加载") { reload() }
                     .buttonStyle(.borderedProminent)
-                Button("Safari") {
-                    UIApplication.shared.open(item.url)
+                if canGoNext {
+                    Button("播放下一个") { index += 1 }
+                        .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
-                Button("复制") {
-                    UIPasteboard.general.string = item.url.absoluteString
-                }
-                .buttonStyle(.bordered)
+                Button("Safari") { UIApplication.shared.open(currentItem.url) }
+                    .buttonStyle(.bordered)
             }
+            .tint(.white)
         }
         .padding(20)
-        .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .padding(.horizontal, 32)
     }
 
-    // MARK: - 播放生命周期
+    // MARK: - 生命周期
 
     private func start() {
         guard player == nil else { return }
+        UIApplication.shared.isIdleTimerDisabled = true
         activateAudioSession()
-        let newPlayer = Self.makePlayer(for: item, referer: referer)
-        player = newPlayer
-        observeFailure(of: newPlayer)
-        newPlayer.play()
-    }
-
-    private func reload() {
-        errorText = nil
-        statusObservation?.invalidate()
-        statusObservation = nil
-        player?.pause()
-
-        let newPlayer = Self.makePlayer(for: item, referer: referer)
-        player = newPlayer
-        observeFailure(of: newPlayer)
-        newPlayer.play()
+        buildPlayer(for: currentItem)
+        scheduleControlHide()
     }
 
     private func stop() {
-        statusObservation?.invalidate()
-        statusObservation = nil
-        player?.pause()
-        player = nil
+        teardownPlayer()
+        UIApplication.shared.isIdleTimerDisabled = false
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
     }
 
-    private func observeFailure(of player: AVPlayer) {
-        statusObservation = player.currentItem?.observe(\.status, options: [.new]) { item, _ in
-            guard item.status == .failed else { return }
-            let message = item.error?.localizedDescription ?? "无法播放这个链接"
+    private func switchToCurrent() {
+        teardownPlayer()
+        errorText = nil
+        buildPlayer(for: currentItem)
+        showControls = true
+        scheduleControlHide()
+    }
+
+    private func buildPlayer(for media: MediaItem) {
+        activateAudioSession()
+        didCopy = false
+        duration = 0
+        position = 0
+        errorText = nil
+
+        let newPlayer = Self.makePlayer(for: media, referer: media.frameURL ?? referer)
+        player = newPlayer
+        observe(newPlayer)
+        attachTimeObserver(newPlayer)
+        newPlayer.play()
+        newPlayer.rate = rate
+        isPlaying = true
+    }
+
+    private func teardownPlayer() {
+        hideWork?.cancel()
+        hideWork = nil
+
+        if let observer = timeObserver, let player = player {
+            player.removeTimeObserver(observer)
+        }
+        timeObserver = nil
+
+        observations.forEach { $0.invalidate() }
+        observations = []
+
+        player?.pause()
+        player = nil
+        isPlaying = false
+        isBuffering = false
+        if let pip = pipController, pip.isPictureInPictureActive {
+            pip.stopPictureInPicture()
+        }
+        pipController = nil
+    }
+
+    private func reload() {
+        teardownPlayer()
+        buildPlayer(for: currentItem)
+        revealControls()
+    }
+
+    // MARK: - 观察
+
+    private func observe(_ player: AVPlayer) {
+        observations.forEach { $0.invalidate() }
+        observations = []
+
+        let status = player.currentItem?.observe(\.status, options: [.new]) { item, _ in
             DispatchQueue.main.async {
-                errorText = message
+                switch item.status {
+                case .failed:
+                    self.errorText = item.error?.localizedDescription ?? "无法播放这个链接"
+                    self.isPlaying = false
+                case .readyToPlay:
+                    let seconds = item.duration.seconds
+                    if seconds.isFinite && seconds > 0 {
+                        self.duration = seconds
+                    }
+                default:
+                    break
+                }
             }
+        }
+
+        let control = player.observe(\.timeControlStatus, options: [.new]) { player, _ in
+            DispatchQueue.main.async {
+                self.isBuffering = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
+            }
+        }
+
+        if let status = status { observations.append(status) }
+        observations.append(control)
+    }
+
+    private func attachTimeObserver(_ player: AVPlayer) {
+        if let observer = timeObserver {
+            player.removeTimeObserver(observer)
+            timeObserver = nil
+        }
+
+        let observer = player.addPeriodicTimeObserver(
+            forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
+            queue: .main
+        ) { time in
+            if !self.isScrubbing {
+                let seconds = time.seconds
+                if seconds.isFinite && seconds >= 0 {
+                    self.position = seconds
+                }
+            }
+            if let item = player.currentItem {
+                let seconds = item.duration.seconds
+                if seconds.isFinite && seconds > 0 {
+                    self.duration = seconds
+                }
+            }
+        }
+        timeObserver = observer
+    }
+
+    // MARK: - 播放控制
+
+    private func togglePlayback() {
+        guard let player = player else { return }
+        if isPlaying {
+            player.pause()
+            isPlaying = false
+        } else {
+            if duration > 0, position >= duration - 0.3 {
+                seek(to: 0)
+            }
+            player.play()
+            player.rate = rate
+            isPlaying = true
+        }
+        revealControls()
+    }
+
+    private func seek(to seconds: Double) {
+        guard let player = player else { return }
+        let upper = duration > 0 ? duration : seconds
+        let target = min(max(seconds, 0), max(upper, 0))
+        player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        position = target
+    }
+
+    private func setRate(_ value: Float) {
+        rate = value
+        guard let player = player else { return }
+        if isPlaying {
+            player.rate = value
+        }
+        revealControls()
+    }
+
+    private func handlePlaybackEnd() {
+        if canGoNext {
+            index += 1
+        } else {
+            isPlaying = false
+            position = duration
+            revealControls()
+        }
+    }
+
+    // MARK: - 控制条显隐
+
+    private func revealControls() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showControls = true
+        }
+        scheduleControlHide()
+    }
+
+    private func toggleControls() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showControls.toggle()
+        }
+        if showControls {
+            scheduleControlHide()
+        }
+    }
+
+    private func scheduleControlHide() {
+        hideWork?.cancel()
+        guard isPlaying, errorText == nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            withAnimation(.easeOut(duration: 0.25)) {
+                self.showControls = false
+            }
+        }
+        hideWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5, execute: work)
+    }
+
+    // MARK: - 画中画 / 音频
+
+    private func setupPictureInPicture(_ layer: AVPlayerLayer) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if self.pipController == nil, AVPictureInPictureController.isPictureInPictureSupported() {
+                self.pipController = AVPictureInPictureController(playerLayer: layer)
+            }
+        }
+    }
+
+    private func togglePictureInPicture() {
+        guard let pip = pipController else { return }
+        if pip.isPictureInPictureActive {
+            pip.stopPictureInPicture()
+        } else {
+            pip.startPictureInPicture()
         }
     }
 
@@ -189,7 +625,29 @@ struct PlayerScreen: View {
         try? session.setActive(true)
     }
 
-    // MARK: - 组装播放器
+    // MARK: - 工具
+
+    private static func timeText(_ seconds: Double) -> String {
+        guard seconds.isFinite && seconds > 0 else { return "0:00" }
+        let total = Int(seconds.rounded())
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let remain = total % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, remain)
+        }
+        return String(format: "%d:%02d", minutes, remain)
+    }
+
+    private static func speedText(_ rate: Float) -> String {
+        if abs(rate - 1.0) < 0.001 { return "1x" }
+        if abs(rate - 0.75) < 0.001 { return "0.75x" }
+        if abs(rate - 1.25) < 0.001 { return "1.25x" }
+        if abs(rate - 1.5) < 0.001 { return "1.5x" }
+        if abs(rate - 2.0) < 0.001 { return "2x" }
+        if abs(rate - 0.5) < 0.001 { return "0.5x" }
+        return String(format: "%.2gx", Double(rate))
+    }
 
     private static func makePlayer(for item: MediaItem, referer: String?) -> AVPlayer {
         var headers: [String: String] = [
@@ -208,6 +666,7 @@ struct PlayerScreen: View {
         let asset = AVURLAsset(url: item.url, options: options)
         let player = AVPlayer(playerItem: AVPlayerItem(asset: asset))
         player.allowsExternalPlayback = true
+        player.preventsDisplaySleepDuringVideoPlayback = true
         return player
     }
 }
