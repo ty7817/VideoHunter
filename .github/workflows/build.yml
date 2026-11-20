@@ -22,15 +22,16 @@ jobs:
           unzip -q $RUNNER_TEMP/source.zip -d $RUNNER_TEMP/src
           cp -R $RUNNER_TEMP/src/VideoHunter/. .
           rm -f .github/workflows/build-ipa.yml
-          xcodebuild -project VideoHunter.xcodeproj -target VideoHunter -configuration Release -sdk iphoneos -derivedDataPath $RUNNER_TEMP/build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > $RUNNER_TEMP/build.log 2>&1
+          xcodebuild -version
+          xcodebuild -project VideoHunter.xcodeproj -target VideoHunter -configuration Release -sdk iphoneos SYMROOT=$RUNNER_TEMP/build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > $RUNNER_TEMP/build.log 2>&1
           STATUS=$?
           echo $STATUS > $RUNNER_TEMP/status
-          tail -n 80 $RUNNER_TEMP/build.log
+          tail -n 120 $RUNNER_TEMP/build.log
           mkdir -p dist
           cp $RUNNER_TEMP/build.log dist/build.log
           echo $STATUS > dist/status.txt
           if [ $STATUS = 0 ]; then
-            APP=$(find $RUNNER_TEMP/build/Build/Products -maxdepth 2 -name VideoHunter.app | head -1)
+            APP=$(find $RUNNER_TEMP/build -maxdepth 3 -name VideoHunter.app | head -1)
             echo app=$APP
             rm -rf Payload
             mkdir -p Payload
