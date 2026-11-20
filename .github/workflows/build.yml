@@ -29,7 +29,7 @@ jobs:
           if ! grep -q 'MARKETING_VERSION = 2.2' VideoHunter.xcodeproj/project.pbxproj 2>/dev/null || ! grep -q 'PhotoLibrarySaver' VideoHunter/ImageViews.swift 2>/dev/null; then
             echo '2.2 source marker missing, importing verified archive'
             curl -fL --retry 5 --retry-delay 3 --max-time 180 $SOURCE_URL -o $RUNNER_TEMP/source.zip
-            echo $SOURCE_SHA  $RUNNER_TEMP/source.zip | shasum -a 256 -c -
+            printf '%s  %s\n' $SOURCE_SHA $RUNNER_TEMP/source.zip | shasum -a 256 -c -
             unzip -q $RUNNER_TEMP/source.zip -d $RUNNER_TEMP/source
             test -f $RUNNER_TEMP/source/VideoHunter/ImageViews.swift
             test -f $RUNNER_TEMP/source/VideoHunter/RemoteImageLoader.swift
