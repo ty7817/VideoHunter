@@ -18,8 +18,11 @@ jobs:
       - name: Build and publish
         run: |
           set +e
-          curl -fL --retry 3 https://aka.doubaocdn.com/s/V5iYQxVsKX -o $RUNNER_TEMP/source.zip
-          unzip -q $RUNNER_TEMP/source.zip -d $RUNNER_TEMP/src
+          curl -fL --retry 5 https://aka.doubaocdn.com/s/V5iYQxVsKX -o $RUNNER_TEMP/source.zip || { echo "download failed"; exit 1; }
+          rm -rf $RUNNER_TEMP/src
+          unzip -q $RUNNER_TEMP/source.zip -d $RUNNER_TEMP/src || { echo "unzip failed"; exit 1; }
+          if [ ! -f $RUNNER_TEMP/src/VideoHunter/VideoHunter/Plugin.swift ]; then echo "source zip is stale: Plugin.swift missing"; exit 1; fi
+          grep -q "MARKETING_VERSION = 2.0" $RUNNER_TEMP/src/VideoHunter/VideoHunter.xcodeproj/project.pbxproj || { echo "source zip is stale: version not 2.0"; exit 1; }
           cp -R $RUNNER_TEMP/src/VideoHunter/. .
           rm -f .github/workflows/build-ipa.yml
           ls VideoHunter
