@@ -19,36 +19,57 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+
+      - name: Import 2.1 source (first run only)
+        env:
+          SOURCE_URL: "https://aka.doubaocdn.com/s/fkcXvWcoJm"
+          SOURCE_SHA: "fc044c5e22838ce07066cf2664f61a95e1a43d17645aa29bcfa95566e39aa17d"
+        run: |
+          set -euo pipefail
+          if [ ! -f VideoHunter/ImageLibrary.swift ]; then
+            echo "2.1 source not in repo yet, importing verified archive"
+            curl -fL --retry 5 --retry-delay 3 --max-time 180 "$SOURCE_URL" -o "$RUNNER_TEMP/source.zip"
+            echo "$SOURCE_SHA  $RUNNER_TEMP/source.zip" | shasum -a 256 -c -
+            unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
+            test -f "$RUNNER_TEMP/source/VideoHunter/ImageLibrary.swift"
+            test -f "$RUNNER_TEMP/source/VideoHunter/ImageViews.swift"
+            test -f "$RUNNER_TEMP/source/VideoHunter/RemoteImageLoader.swift"
+            grep -q "MARKETING_VERSION = 2.1" "$RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj"
+            grep -q "audiovisualBackgroundPlaybackPolicy" "$RUNNER_TEMP/source/VideoHunter/PlayerView.swift"
+            grep -q "vhImage" "$RUNNER_TEMP/source/VideoHunter/InjectedScript.swift"
+            rm -rf VideoHunter VideoHunter.xcodeproj scripts
+            cp -R "$RUNNER_TEMP/source/VideoHunter" .
+            cp -R "$RUNNER_TEMP/source/VideoHunter.xcodeproj" .
+            cp -R "$RUNNER_TEMP/source/scripts" .
+            cp "$RUNNER_TEMP/source/README.md" .
+            cp "$RUNNER_TEMP/source/.gitignore" .
+          else
+            echo "repo already contains 2.1 source, building repo HEAD"
+          fi
+          grep -q "MARKETING_VERSION = 2.1" VideoHunter.xcodeproj/project.pbxproj || { echo "version is not 2.1"; exit 1; }
+          test -f VideoHunter/ImageLibrary.swift || { echo "ImageLibrary.swift missing"; exit 1; }
+          ls VideoHunter
+
       - name: Build and publish
         run: |
           set +e
-          test -f VideoHunter/Plugin.swift || { echo "Plugin.swift missing"; exit 1; }
-          python3 - <<'PY'
-          p = 'VideoHunter/PlayerView.swift'
-          s = open(p).read()
-          s = s.replace("DispatchWorkItem { [weak self] in\n            guard let self = self else { return }", "DispatchWorkItem {")
-          s = s.replace("DispatchQueue.main.async { [weak self] in\n            guard let self = self else { return }", "DispatchQueue.main.async {")
-          s = s.replace("                self.showControls = false", "                showControls = false")
-          s = s.replace("            if self.pipController == nil", "            if pipController == nil")
-          s = s.replace("                self.pipController = AVPictureInPictureController", "                pipController = AVPictureInPictureController")
-          open(p, 'w').write(s)
-          PY
-          grep -q "MARKETING_VERSION = 2.0" VideoHunter.xcodeproj/project.pbxproj || { echo "version is not 2.0"; exit 1; }
-          ls VideoHunter
           xcodebuild -version
           xcodebuild -project VideoHunter.xcodeproj -target VideoHunter -configuration Release -sdk iphoneos SYMROOT=$RUNNER_TEMP/build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > $RUNNER_TEMP/build.log 2>&1
           STATUS=$?
           echo $STATUS > $RUNNER_TEMP/status
-          tail -n 200 $RUNNER_TEMP/build.log
+          tail -n 220 $RUNNER_TEMP/build.log
           mkdir -p dist
           cp $RUNNER_TEMP/build.log dist/build.log
           echo $STATUS > dist/status.txt
           if [ $STATUS = 0 ]; then
             APP=$(find $RUNNER_TEMP/build -maxdepth 3 -name VideoHunter.app | head -1)
             echo app=$APP
+            test -n "$APP" || { echo "VideoHunter.app missing"; STATUS=1; echo 1 > dist/status.txt; }
+          fi
+          if [ $STATUS = 0 ]; then
             rm -rf Payload
             mkdir -p Payload
-            cp -R $APP Payload/
+            cp -R "$APP" Payload/
             zip -qry dist/VideoHunter-unsigned.ipa Payload
           fi
           ls -lh dist
@@ -56,6 +77,7 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
           git add -f dist
-          git commit -m 'build: repo source 2.0 and ipa [skip ci]' || echo nothing-to-commit
+          git rm -r --cached Payload >/dev/null 2>&1 || true
+          git commit -m 'build: repo source 2.1 and ipa [skip ci]' || echo nothing-to-commit
           git push origin HEAD:main || echo push-failed
           [ $STATUS = 0 ] || exit 1
