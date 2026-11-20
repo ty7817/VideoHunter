@@ -60,7 +60,38 @@ enum InjectedScript {
     return false;
   }
 
-  function report(rawUrl, kind, via, strict) {
+  // 页面封面：og:image / twitter:image / JSON-LD 里的图，拿来做没有 poster 的视频预览图。
+  var pageImageCache = null;
+
+  function pageImage() {
+    if (pageImageCache) { return pageImageCache; }
+    try {
+      var meta = document.querySelector('meta[property="og:image"], meta[name="og:image"], meta[name="twitter:image"], meta[property="twitter:image"]');
+      if (meta) {
+        var content = meta.getAttribute('content') || '';
+        if (content) {
+          pageImageCache = absolute(content) || '';
+        }
+      }
+    } catch (e) {}
+    if (!pageImageCache) {
+      try {
+        var blocks = document.querySelectorAll('script[type="application/ld+json"]');
+        for (var i = 0; i < blocks.length && i < 4; i++) {
+          var text = (blocks[i].textContent || '').replace(/\\\//g, '/');
+          if (text.indexOf('thumbnailUrl') < 0 && text.indexOf('"image"') < 0) { continue; }
+          var match = text.match(/"thumbnailUrl"\s*:\s*"([^"]+)"|"image"\s*:\s*"([^"]+)"/);
+          if (match) {
+            pageImageCache = absolute(match[1] || match[2]) || '';
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+    return pageImageCache || '';
+  }
+
+  function report(rawUrl, kind, via, strict, thumb) {
     try {
       var abs = absolute(rawUrl);
       if (!abs) { return; }
@@ -68,12 +99,14 @@ enum InjectedScript {
       if (strict && looksLikeSegment(abs)) { return; }
       if (seen[abs]) { return; }
       seen[abs] = true;
+      var image = thumb ? (absolute(thumb) || '') : pageImage();
       post({
         url: abs,
         kind: kind || guessKind(abs, ''),
         via: via || 'dom',
         title: (document.title || '').slice(0, 120),
-        frame: String(location.href || '').slice(0, 500)
+        frame: String(location.href || '').slice(0, 500),
+        thumb: image || ''
       });
     } catch (e) {}
   }
@@ -160,7 +193,7 @@ enum InjectedScript {
         },
         set: function (value) {
           try {
-            if (value) { report(value, '', 'src'); }
+            if (value) { report(value, '', 'src', false, (this && this.poster) || ''); }
           } catch (e2) {}
           return descriptor.set.call(this, value);
         }
@@ -182,6 +215,10 @@ enum InjectedScript {
         var element = nodes[i];
         var tag = element.tagName;
         var candidates = [];
+        var poster = '';
+        try {
+          poster = element.poster || element.getAttribute('poster') || element.getAttribute('data-poster') || element.getAttribute('data-cover') || '';
+        } catch (e) {}
         try { if (element.currentSrc) { candidates.push(element.currentSrc); } } catch (e) {}
         try { if (element.src) { candidates.push(element.src); } } catch (e) {}
         for (var a = 0; a < attrs.length; a++) {
@@ -191,7 +228,7 @@ enum InjectedScript {
         }
         for (var c = 0; c < candidates.length; c++) {
           if (candidates[c]) {
-            report(candidates[c], guessKind(candidates[c], ''), 'dom', false);
+            report(candidates[c], guessKind(candidates[c], ''), 'dom', false, poster);
           }
         }
       }
@@ -283,6 +320,28 @@ enum InjectedScript {
   };
 
   /* ---------- 8. 整站扫描时取页面链接 ---------- */
+  function nearestImage(node) {
+    try {
+      if (!node) { return ''; }
+      var inner = node.querySelector ? node.querySelector('img') : null;
+      if (inner) {
+        var src = inner.currentSrc || inner.src || '';
+        if (src) { return src; }
+      }
+      var parent = node.parentElement;
+      for (var depth = 0; parent && depth < 2; depth++) {
+        var images = parent.querySelectorAll('img');
+        if (images.length > 0) {
+          var first = images[0];
+          var url = first.currentSrc || first.src || '';
+          if (url) { return url; }
+        }
+        parent = parent.parentElement;
+      }
+    } catch (e) {}
+    return '';
+  }
+
   window.__vhCollectLinks = function (maxLinks) {
     var result = {
       links: [],
@@ -299,7 +358,7 @@ enum InjectedScript {
         if (!href || !/^https?:/i.test(href)) { continue; }
         if (MEDIA_RE.test(href) && !SEGMENT_RE.test(href) && !looksLikeSegment(href)) {
           if (result.media.length < 80) {
-            result.media.push({ url: href, kind: guessKind(href, '') });
+            result.media.push({ url: href, kind: guessKind(href, ''), thumb: nearestImage(anchors[i]) });
           }
           continue;
         }

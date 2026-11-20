@@ -337,26 +337,37 @@ struct MediaListSheet: View {
                     }
                 } else {
                     Section {
-                        ForEach(sniffer.items) { item in
-                            row(for: item)
-                                .swipeActions(edge: .trailing) {
-                                    Button {
-                                        UIPasteboard.general.string = item.url.absoluteString
-                                    } label: {
-                                        Label("复制", systemImage: "doc.on.doc")
-                                    }
-                                    .tint(.orange)
+                        Text("共 \(sniffer.items.count) 个链接，已按类型分组，点按即可播放")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
 
-                                    Button {
-                                        UIApplication.shared.open(item.url)
-                                    } label: {
-                                        Label("Safari", systemImage: "safari")
+                    ForEach(groups) { group in
+                        Section {
+                            ForEach(group.items) { item in
+                                row(for: item)
+                                    .swipeActions(edge: .trailing) {
+                                        Button {
+                                            UIPasteboard.general.string = item.url.absoluteString
+                                        } label: {
+                                            Label("复制", systemImage: "doc.on.doc")
+                                        }
+                                        .tint(.orange)
+
+                                        Button {
+                                            UIApplication.shared.open(item.url)
+                                        } label: {
+                                            Label("Safari", systemImage: "safari")
+                                        }
+                                        .tint(.blue)
                                     }
-                                    .tint(.blue)
-                                }
+                            }
+                        } header: {
+                            HStack(spacing: 6) {
+                                Image(systemName: group.category.symbolName)
+                                Text("\(group.category.label) · \(group.items.count)")
+                            }
                         }
-                    } header: {
-                        Text("共 \(sniffer.items.count) 个链接 · 点按即可播放")
                     }
                 }
             }
@@ -398,6 +409,20 @@ struct MediaListSheet: View {
             Button("取消", role: .cancel) { }
         } message: { item in
             Text(item.playability.hint)
+        }
+    }
+
+    private struct CategoryGroup: Identifiable {
+        let category: MediaCategory
+        let items: [MediaItem]
+
+        var id: String { category.rawValue }
+    }
+
+    private var groups: [CategoryGroup] {
+        MediaCategory.allCases.compactMap { category in
+            let list = sniffer.items.filter { $0.category == category }
+            return list.isEmpty ? nil : CategoryGroup(category: category, items: list)
         }
     }
 

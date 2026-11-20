@@ -15,6 +15,7 @@ struct SiteScanSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    @State private var groupMode: GroupMode = .page
     @State private var playing: MediaItem?
     @State private var externalItem: MediaItem?
     @State private var showExternalDialog = false
@@ -73,8 +74,54 @@ struct SiteScanSheet: View {
         }
     }
 
+    private enum GroupMode: String, CaseIterable, Identifiable {
+        case page
+        case category
+
+        var id: String { rawValue }
+    }
+
+    private struct CategoryGroup: Identifiable {
+        let category: MediaCategory
+        let items: [MediaItem]
+
+        var id: String { category.rawValue }
+    }
+
     private var allItems: [MediaItem] {
         crawler.pages.flatMap { $0.items }
+    }
+
+    private var categoryGroups: [CategoryGroup] {
+        let all = allItems
+        return MediaCategory.allCases.compactMap { category in
+            let list = all.filter { $0.category == category }
+            return list.isEmpty ? nil : CategoryGroup(category: category, items: list)
+        }
+    }
+
+    private func itemRow(_ item: MediaItem) -> some View {
+        Button {
+            handleTap(item)
+        } label: {
+            MediaRowView(item: item)
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing) {
+            Button {
+                UIPasteboard.general.string = item.url.absoluteString
+            } label: {
+                Label("复制", systemImage: "doc.on.doc")
+            }
+            .tint(.orange)
+
+            Button {
+                UIApplication.shared.open(item.url)
+            } label: {
+                Label("Safari", systemImage: "safari")
+            }
+            .tint(.blue)
+        }
     }
 
     // MARK: - 设置
@@ -247,35 +294,39 @@ struct SiteScanSheet: View {
                 .padding(.vertical, 4)
             }
 
-            ForEach(crawler.pages) { page in
-                Section {
-                    ForEach(page.items) { item in
-                        Button {
-                            handleTap(item)
-                        } label: {
-                            MediaRowView(item: item)
-                        }
-                        .buttonStyle(.plain)
-                        .swipeActions(edge: .trailing) {
-                            Button {
-                                UIPasteboard.general.string = item.url.absoluteString
-                            } label: {
-                                Label("复制", systemImage: "doc.on.doc")
-                            }
-                            .tint(.orange)
+            Section {
+                Picker("分组方式", selection: $groupMode) {
+                    Text("按页面").tag(GroupMode.page)
+                    Text("按分类").tag(GroupMode.category)
+                }
+                .pickerStyle(.segmented)
+                .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+            }
 
-                            Button {
-                                UIApplication.shared.open(item.url)
-                            } label: {
-                                Label("Safari", systemImage: "safari")
-                            }
-                            .tint(.blue)
+            if groupMode == .page {
+                ForEach(crawler.pages) { page in
+                    Section {
+                        ForEach(page.items) { item in
+                            itemRow(item)
+                        }
+                    } header: {
+                        Text(page.displayTitle)
+                    } footer: {
+                        Text(page.url.absoluteString)
+                    }
+                }
+            } else {
+                ForEach(categoryGroups) { group in
+                    Section {
+                        ForEach(group.items) { item in
+                            itemRow(item)
+                        }
+                    } header: {
+                        HStack(spacing: 6) {
+                            Image(systemName: group.category.symbolName)
+                            Text("\(group.category.label) · \(group.items.count)")
                         }
                     }
-                } header: {
-                    Text(page.displayTitle)
-                } footer: {
-                    Text(page.url.absoluteString)
                 }
             }
 

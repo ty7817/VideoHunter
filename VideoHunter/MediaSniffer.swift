@@ -55,17 +55,39 @@ final class MediaSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
         let frame = body["frame"] as? String
         let source = (body["via"] as? String) ?? "dom"
 
-        ingest(MediaItem(url: url, kind: kind, source: source, pageTitle: title, frameURL: frame))
+        var thumb: URL?
+        if let rawThumb = body["thumb"] as? String,
+           let thumbURL = URL(string: rawThumb),
+           thumbURL.scheme != nil {
+            thumb = thumbURL
+        }
+
+        ingest(MediaItem(
+            url: url,
+            kind: kind,
+            source: source,
+            pageTitle: title,
+            frameURL: frame,
+            thumbnailURL: thumb
+        ))
     }
 
     // MARK: - 入库
 
     private func ingest(_ item: MediaItem) {
         if let existing = store[item.key] {
-            // 同一个地址，如果这次识别出了更精确的类型，就升级一下。
+            // 同一个地址，如果这次识别出了更精确的类型或补上了预览图，就升级一下。
+            var updated = existing
+            var changed = false
             if item.kind.rank < existing.kind.rank {
-                var updated = existing
                 updated.kind = item.kind
+                changed = true
+            }
+            if existing.thumbnailURL == nil, item.thumbnailURL != nil {
+                updated.thumbnailURL = item.thumbnailURL
+                changed = true
+            }
+            if changed {
                 store[item.key] = updated
                 scheduleFlush()
             }

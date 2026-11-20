@@ -81,6 +81,7 @@ struct MediaItem: Identifiable, Hashable {
     let source: String
     let pageTitle: String
     let frameURL: String?
+    var thumbnailURL: URL?
     let createdAt: Date
 
     init(
@@ -89,6 +90,7 @@ struct MediaItem: Identifiable, Hashable {
         source: String,
         pageTitle: String = "",
         frameURL: String? = nil,
+        thumbnailURL: URL? = nil,
         createdAt: Date = Date()
     ) {
         self.id = UUID()
@@ -97,6 +99,7 @@ struct MediaItem: Identifiable, Hashable {
         self.source = source
         self.pageTitle = pageTitle
         self.frameURL = frameURL
+        self.thumbnailURL = thumbnailURL
         self.createdAt = createdAt
     }
 

@@ -373,7 +373,7 @@ final class SiteCrawler: NSObject, ObservableObject {
         }
 
         var links: [String] = []
-        var payloadMedia: [(String, String)] = []
+        var payloadMedia: [(String, String, String)] = []
 
         if let payload = payload, let data = payload.data(using: .utf8) {
             do {
@@ -385,7 +385,11 @@ final class SiteCrawler: NSObject, ObservableObject {
                     if let rawMedia = dict["media"] as? [[String: Any]] {
                         for entry in rawMedia {
                             if let raw = entry["url"] as? String {
-                                payloadMedia.append((raw, (entry["kind"] as? String) ?? ""))
+                                payloadMedia.append((
+                                    raw,
+                                    (entry["kind"] as? String) ?? "",
+                                    (entry["thumb"] as? String) ?? ""
+                                ))
                             }
                         }
                     }
@@ -396,7 +400,7 @@ final class SiteCrawler: NSObject, ObservableObject {
         }
 
         for pair in payloadMedia {
-            appendMedia(raw: pair.0, kindRaw: pair.1, title: title, pageURL: pageURL, via: "link")
+            appendMedia(raw: pair.0, kindRaw: pair.1, thumbRaw: pair.2, title: title, pageURL: pageURL, via: "link")
         }
 
         var kept: [MediaItem] = []
@@ -420,7 +424,7 @@ final class SiteCrawler: NSObject, ObservableObject {
         pump()
     }
 
-    private func appendMedia(raw: String, kindRaw: String, title: String, pageURL: URL?, via: String) {
+    private func appendMedia(raw: String, kindRaw: String, thumbRaw: String = "", title: String, pageURL: URL?, via: String) {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         guard let url = URL(string: trimmed), url.scheme != nil else { return }
@@ -436,12 +440,18 @@ final class SiteCrawler: NSObject, ObservableObject {
             kind = MediaSniffer.inferKind(url)
         }
 
+        var thumb: URL?
+        if let thumbURL = URL(string: thumbRaw), thumbURL.scheme != nil {
+            thumb = thumbURL
+        }
+
         let item = MediaItem(
             url: url,
             kind: kind,
             source: via,
             pageTitle: title,
-            frameURL: pageURL?.absoluteString
+            frameURL: pageURL?.absoluteString,
+            thumbnailURL: thumb
         )
         pageBuffer[key] = item
         pageOrder.append(key)
@@ -661,6 +671,7 @@ extension SiteCrawler: WKScriptMessageHandler {
         appendMedia(
             raw: raw,
             kindRaw: (body["kind"] as? String) ?? "",
+            thumbRaw: (body["thumb"] as? String) ?? "",
             title: title,
             pageURL: webView?.url,
             via: (body["via"] as? String) ?? "dom"

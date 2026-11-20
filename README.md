@@ -17,6 +17,8 @@
 | 子框架覆盖 | 脚本注入 `forMainFrameOnly = false`，内嵌 iframe 里的播放器同样能抓到 |
 | 实时更新 | `MutationObserver` + 3 秒轮询，播放按钮点下后新产生的地址会自动进列表 |
 | 整站扫描 | 从当前页出发，先读 `sitemap.xml` 铺底，再按广度优先逐页打开站内链接（默认 60 页 / 3 层，可调），把每一页的视频汇总后按页分组展示 |
+| 视频预览图 | 注入脚本读取 `<video poster>`、列表项 `<img>`、页面的 `og:image` / `twitter:image` / JSON-LD 缩略图，带 Referer/UA 下载并缓存，列表直接显示缩略图 |
+| 自动分类 | 按链接路径、文件名、页面标题判断电影 / 剧集 / 动漫 / 综艺 / 短视频 / 音乐 / 其他，本页列表按分类分节，整站结果可切「按分类 / 按页面」 |
 | 去重排序 | 按 URL 去重，HLS → MP4 → 其他，最多保留 200 条；自动过滤 `.ts` / `.m4s` 等 HLS 分片 |
 | 内置播放 | AVPlayer 播放 HLS / MP4，自动带 `Referer`、`Origin`、`User-Agent`，减少 403；支持全屏、画中画、AirPlay |
 | 直接链接 | 地址栏粘贴 `.m3u8` / `.mp4` 时，拦下导航直接进播放器，不在网页里显示一堆文本 |
@@ -38,6 +40,8 @@ VideoHunter/
 │   ├── BrowserView.swift         # WKWebView 的 SwiftUI 封装
 │   ├── MediaSniffer.swift        # 消息接收、去重、排序、类型判断
 │   ├── MediaItem.swift           # 媒体数据模型
+│   ├── MediaCategory.swift       # 视频分类规则（电影/剧集/动漫…）
+│   ├── ThumbnailView.swift       # 预览图下载、缓存与缩略图视图
 │   ├── SiteCrawler.swift         # 整站扫描调度（隐藏 WKWebView + 队列）
 │   ├── SiteScanView.swift        # 整站扫描的设置 / 进度 / 结果页
 │   ├── MediaRowView.swift        # 视频列表通用行
@@ -113,6 +117,8 @@ xcodebuild -project VideoHunter.xcodeproj -target VideoHunter \
 - **App Store 不会通过**：这类网页嗅探 + 播放器属于灰色地带，只适合自签自用，不要上传商店。
 - **整站扫描不是无限爬**：只跟随页面里的 `<a href>`，不解析 JS 里的路由跳转；默认 60 页 / 3 层，冷门页面可能扫不到。想覆盖更多就调高页数和层级，但耗时会线性增长。
 - **扫描依赖前台运行**：iOS 会在 App 进入后台后暂停网页加载，扫描期间请保持前台、别锁屏。
+- **预览图可能显示不出来**：部分站点对图片做了防盗链或需要登录 Cookie，下载失败时会回落到类型图标；`blob:`、画布渲染的视频也没有可用的封面图。
+- **分类是启发式的**：靠 URL 和标题关键词判断，命名不规范的站点可能分错，可在 `MediaCategory.swift` 的 `rules` 里补关键词。
 - **编译验证**：当前版本已在 GitHub Actions 的 macOS-15 + Xcode 上真实编译通过（`BUILD SUCCEEDED`），产物是未签名 IPA。
 
 ---
