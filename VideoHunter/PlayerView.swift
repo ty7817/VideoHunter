@@ -63,6 +63,7 @@ struct PlayerScreen: View {
     let item: MediaItem
     let referer: String?
     let playlist: [MediaItem]
+    let onGoHome: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -86,9 +87,10 @@ struct PlayerScreen: View {
     @State private var hideWork: DispatchWorkItem?
     @State private var remoteTargets: [(MPRemoteCommand, Any)] = []
 
-    init(item: MediaItem, referer: String?, playlist: [MediaItem] = []) {
+    init(item: MediaItem, referer: String?, playlist: [MediaItem] = [], onGoHome: (() -> Void)? = nil) {
         self.item = item
         self.referer = referer
+        self.onGoHome = onGoHome
         let queue = playlist.isEmpty ? [item] : playlist
         self.playlist = queue
         let start = queue.firstIndex(where: { $0.id == item.id }) ?? 0
@@ -212,6 +214,17 @@ struct PlayerScreen: View {
 
     private var topBar: some View {
         HStack(spacing: 12) {
+            Button {
+                dismiss()
+                onGoHome?()
+            } label: {
+                Image(systemName: "house.fill")
+                    .font(.system(size: 13, weight: .bold))
+                    .frame(width: 34, height: 34)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .accessibilityLabel("回到主页")
+
             Button {
                 dismiss()
             } label: {

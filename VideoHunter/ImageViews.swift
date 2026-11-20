@@ -215,7 +215,7 @@ struct ImageListSheet: View {
                 .foregroundStyle(.secondary)
             Text("还没有发现图片")
                 .font(.headline)
-            Text("等网页加载完成后，图片会自动识别；也可以先在地址栏打开一个有图集的页面，或点右上角刷新当前页。")
+            Text("等网页加载完成后，图片会自动识别。若当前页没有图片，关闭本页后点主界面的取景器按钮重新扫描。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

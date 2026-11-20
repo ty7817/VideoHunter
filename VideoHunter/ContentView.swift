@@ -33,7 +33,7 @@ struct ContentView: View {
         }
         .background(Color(uiColor: .systemBackground))
         .fullScreenCover(item: $controller.directItem) { item in
-            PlayerScreen(item: item, referer: controller.pageURLString)
+            PlayerScreen(item: item, referer: controller.pageURLString, onGoHome: { controller.goHome() })
         }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
@@ -175,11 +175,11 @@ struct ContentView: View {
                     .font(.system(size: 56, weight: .light))
                     .foregroundStyle(Color.accentColor)
 
-                Text("粘贴网页链接，自动识别页面里的视频")
+                Text("粘贴网页链接，自动识别页面里的视频和图片")
                     .font(.headline)
                     .multilineTextAlignment(.center)
 
-                Text("会实时扫描页面里的 video 标签、网络请求和脚本中的媒体地址。点「整站扫描」还能顺着站内链接把整站的视频一次抓出来。")
+                Text("会实时扫描页面里的 video 标签、网络请求和脚本媒体地址，也会读取 img、srcset、og:image 等图片资源。视频和图片各有一个独立的结果页。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -189,6 +189,7 @@ struct ContentView: View {
                     tag("m3u8")
                     tag("mp4")
                     tag("网页视频")
+                    tag("网页图片")
                 }
                 .padding(.top, 2)
 
@@ -308,6 +309,8 @@ struct ContentView: View {
         HStack(spacing: 5) {
             Image(systemName: icon)
             Text(text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
         .font(.caption.weight(.medium))
         .padding(.horizontal, 10)

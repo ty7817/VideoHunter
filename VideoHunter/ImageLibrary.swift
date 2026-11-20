@@ -115,11 +115,11 @@ struct ImageItem: Identifiable, Hashable {
 enum ImageClassifier {
     static func category(for item: ImageItem) -> ImageCategory {
         let urlText = (item.url.absoluteString + " " + item.url.path).lowercased()
-        let metaText = (item.alt + " " + item.context + " " + item.pageTitle).lowercased()
+        let elementText = (item.alt + " " + item.context).lowercased()
 
         func has(_ words: [String]) -> Bool {
             for word in words {
-                if urlText.contains(word) || metaText.contains(word) { return true }
+                if urlText.contains(word) || elementText.contains(word) { return true }
             }
             return false
         }
