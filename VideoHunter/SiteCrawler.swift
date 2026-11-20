@@ -8,6 +8,7 @@
 
 import Foundation
 import WebKit
+import UIKit
 import Combine
 
 struct CrawledPage: Identifiable {
@@ -173,11 +174,36 @@ final class SiteCrawler: NSObject, ObservableObject {
         controller.add(self, name: MediaSniffer.handlerName)
         configuration.userContentController = controller
 
-        let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 320, height: 480), configuration: configuration)
+        let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 2, height: 2), configuration: configuration)
         view.navigationDelegate = self
         view.customUserAgent = BrowserController.mobileUserAgentString
-        view.isHidden = true
+        view.isUserInteractionEnabled = false
+        // 挂到窗口上（几乎透明、2×2），这样页面不会被当成后台标签页，JS 定时器和懒加载才会跑。
+        view.alpha = 0.02
+        if let window = Self.keyWindow() {
+            window.addSubview(view)
+        }
         webView = view
+    }
+
+    private static func keyWindow() -> UIWindow? {
+        let scenes = UIApplication.shared.connectedScenes
+        for scene in scenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            if let window = windowScene.keyWindow {
+                return window
+            }
+            if let window = windowScene.windows.first(where: { $0.isKeyWindow }) {
+                return window
+            }
+        }
+        for scene in scenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            if let window = windowScene.windows.first {
+                return window
+            }
+        }
+        return nil
     }
 
     private func teardown() {
@@ -185,6 +211,7 @@ final class SiteCrawler: NSObject, ObservableObject {
         view.stopLoading()
         view.navigationDelegate = nil
         view.configuration.userContentController.removeScriptMessageHandler(forName: MediaSniffer.handlerName)
+        view.removeFromSuperview()
         webView = nil
     }
 
@@ -286,14 +313,43 @@ final class SiteCrawler: NSObject, ObservableObject {
     /// 先做一次完整重扫（补上加载后期才出现的地址），再取链接。
     private func harvest(_ gen: Int) {
         guard gen == generation, pagePending, let view = webView else { return }
-        view.evaluateJavaScript("window.__vhRescan ? (window.__vhRescan(), true) : true") { [weak self] _, _ in
+
+        // 先往下滚一遍，触发懒加载 / 无限滚动列表里的视频；页面很长的站点也能多抓到一些。
+        view.evaluateJavaScript(Self.autoScrollScript) { [weak self] _, _ in
             guard let self = self, gen == self.generation, self.pagePending else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
                 guard let self = self, gen == self.generation, self.pagePending else { return }
-                self.collectLinks(gen)
+                view.evaluateJavaScript("window.__vhRescan ? (window.__vhRescan(), true) : true") { [weak self] _, _ in
+                    guard let self = self, gen == self.generation, self.pagePending else { return }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                        guard let self = self, gen == self.generation, self.pagePending else { return }
+                        self.collectLinks(gen)
+                    }
+                }
             }
         }
     }
+
+    private static let autoScrollScript = """
+    (function () {
+      try {
+        var body = document.body;
+        if (!body) { return true; }
+        var step = Math.max(window.innerHeight, 320) * 0.9;
+        var round = 0;
+        var timer = setInterval(function () {
+          try {
+            window.scrollBy(0, step);
+            round++;
+            if (round >= 6 || window.scrollY + window.innerHeight >= body.scrollHeight - 4) {
+              clearInterval(timer);
+            }
+          } catch (e) { clearInterval(timer); }
+        }, 100);
+      } catch (e) {}
+      return true;
+    })();
+    """
 
     private func collectLinks(_ gen: Int) {
         guard gen == generation, let view = webView else { return }

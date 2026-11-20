@@ -12,6 +12,7 @@ import Combine
 struct ContentView: View {
     @StateObject private var controller = BrowserController()
     @StateObject private var siteCrawler = SiteCrawler()
+    @State private var input = ""
     @FocusState private var addressFocused: Bool
     @State private var activeSheet: ActiveSheet?
     @State private var toastText: String?
