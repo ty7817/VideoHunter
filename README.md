@@ -138,7 +138,8 @@ xcodebuild -project VideoHunter.xcodeproj -target VideoHunter \
 - **扫描依赖前台运行**：iOS 会在 App 进入后台后暂停网页加载，扫描期间请保持前台、别锁屏。
 - **预览图可能显示不出来**：部分站点对图片做了防盗链或需要登录 Cookie，下载失败时会回落到类型图标；`blob:`、画布渲染的视频也没有可用的封面图。
 - **分类是启发式的**：靠 URL 和标题关键词判断，命名不规范的站点可能分错，可在 `MediaCategory.swift` 的 `rules` 里补关键词。
-- **编译验证**：当前版本（2.1 / Build 5）已在 GitHub Actions 的 macOS-15 + Xcode 上真实编译通过（`BUILD SUCCEEDED`），产物是未签名 IPA。
+- **编译验证**：当前版本（2.2 / Build 6）在 GitHub Actions 的 macOS-15 + Xcode 16.4 上真实编译通过（`BUILD SUCCEEDED`），18 个 Swift 源文件全部参与编译，产物是未签名 IPA。
+- **2.2 修复**：iPad 分享 popover 崩溃；相册写入权限检查与失败提示；ImageIO 下采样解码、图片请求 4 路并发上限、原图 72 MB / 缩略图 36 MB / 视频首帧 24 MB 缓存上限；列表复用前清空旧图，避免闪图。
 
 ---
 

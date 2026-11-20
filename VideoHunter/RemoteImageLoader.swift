@@ -1,18 +1,62 @@
 import Foundation
 import UIKit
+import ImageIO
+
+/// 限制图片/视频首帧的同时加载数量，避免快速滚动时打满网络和 CPU。
+actor AsyncLimiter {
+    private let limit: Int
+    private var available: Int
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(limit: Int) {
+        let safeLimit = max(1, limit)
+        self.limit = safeLimit
+        self.available = safeLimit
+    }
+
+    func withPermit<T>(_ operation: () async -> T) async -> T {
+        await acquire()
+        defer { release() }
+        return await operation()
+    }
+
+    private func acquire() async {
+        if available > 0 {
+            available -= 1
+            return
+        }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            waiters.append(continuation)
+        }
+    }
+
+    private func release() {
+        if waiters.isEmpty {
+            available = min(limit, available + 1)
+        } else {
+            let next = waiters.removeFirst()
+            next.resume()
+        }
+    }
+}
 
 enum RemoteImageLoader {
+    /// 图片/视频预览图同时最多 4 路请求。
+    private static let loadLimiter = AsyncLimiter(limit: 4)
+    private static let maxOriginalPixelSize: CGFloat = 3072
+    private static let maxDownloadBytes = 30 * 1024 * 1024
+
     static let thumbnailCache: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
-        cache.countLimit = 260
-        cache.totalCostLimit = 40 * 1024 * 1024
+        cache.countLimit = 240
+        cache.totalCostLimit = 36 * 1024 * 1024
         return cache
     }()
 
     static let originalCache: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
-        cache.countLimit = 40
-        cache.totalCostLimit = 90 * 1024 * 1024
+        cache.countLimit = 12
+        cache.totalCostLimit = 72 * 1024 * 1024
         return cache
     }()
 
@@ -29,11 +73,16 @@ enum RemoteImageLoader {
         return URLSession(configuration: configuration)
     }()
 
+    static func cachedThumbnail(for url: URL, maxWidth: CGFloat) -> UIImage? {
+        let key = "\(url.absoluteString)|\(Int(maxWidth))" as NSString
+        return thumbnailCache.object(forKey: key)
+    }
+
     static func image(for url: URL, referer: String?) async -> UIImage? {
         let key = url.absoluteString as NSString
         if let cached = originalCache.object(forKey: key) { return cached }
         guard let data = await fetchData(url: url, referer: referer),
-              let image = UIImage(data: data) else { return nil }
+              let image = decodedImage(from: data, maxPixelSize: maxOriginalPixelSize) else { return nil }
         originalCache.setObject(image, forKey: key, cost: cost(of: image))
         return image
     }
@@ -42,10 +91,9 @@ enum RemoteImageLoader {
         let key = "\(url.absoluteString)|\(Int(maxWidth))" as NSString
         if let cached = thumbnailCache.object(forKey: key) { return cached }
         guard let data = await fetchData(url: url, referer: referer),
-              let image = UIImage(data: data) else { return nil }
-        let thumb = downscaled(image, maxWidth: maxWidth)
-        thumbnailCache.setObject(thumb, forKey: key, cost: cost(of: thumb))
-        return thumb
+              let image = decodedImage(from: data, maxPixelSize: thumbnailPixelSize(for: maxWidth)) else { return nil }
+        thumbnailCache.setObject(image, forKey: key, cost: cost(of: image))
+        return image
     }
 
     static func clearMemory() {
@@ -54,8 +102,17 @@ enum RemoteImageLoader {
     }
 
     private static func fetchData(url: URL, referer: String?) async -> Data? {
+        await loadLimiter.withPermit {
+            await fetchDataWithoutPermit(url: url, referer: referer)
+        }
+    }
+
+    private static func fetchDataWithoutPermit(url: URL, referer: String?) async -> Data? {
         if url.scheme?.lowercased() == "data" {
-            return decodeDataURI(url.absoluteString)
+            guard let data = decodeDataURI(url.absoluteString),
+                  data.count <= maxDownloadBytes,
+                  containsImageData(data) else { return nil }
+            return data
         }
 
         var candidates: [String?] = []
@@ -99,13 +156,39 @@ enum RemoteImageLoader {
                    mime.contains("text/html") || mime.contains("text/plain") {
                     continue
                 }
-                guard !data.isEmpty, data.count <= 30 * 1024 * 1024 else { continue }
-                if UIImage(data: data) != nil { return data }
+                guard !data.isEmpty,
+                      data.count <= maxDownloadBytes,
+                      containsImageData(data) else { continue }
+                return data
             } catch {
                 continue
             }
         }
         return nil
+    }
+
+    private static func containsImageData(_ data: Data) -> Bool {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return false }
+        return CGImageSourceGetCount(source) > 0
+    }
+
+    /// 使用 ImageIO 按目标像素尺寸解码，避免 UIImage(data:) 先把整张原图展开。
+    private static func decodedImage(from data: Data, maxPixelSize: CGFloat) -> UIImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(1, Int(maxPixelSize))
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage)
+    }
+
+    private static func thumbnailPixelSize(for maxWidth: CGFloat) -> CGFloat {
+        min(1600, max(160, maxWidth * UIScreen.main.scale))
     }
 
     private static func originString(from raw: String) -> String? {
@@ -129,31 +212,11 @@ enum RemoteImageLoader {
         return nil
     }
 
-    private static func downscaled(_ image: UIImage, maxWidth: CGFloat) -> UIImage {
-        let pixelWidth = image.size.width * image.scale
-        let pixelHeight = image.size.height * image.scale
-        guard pixelWidth > 0, pixelHeight > 0 else { return image }
-
-        var scale = min(1, (maxWidth * UIScreen.main.scale) / pixelWidth)
-        let maxPixels: CGFloat = 4_000_000
-        let currentPixels = pixelWidth * pixelHeight
-        if currentPixels * scale * scale > maxPixels {
-            scale = min(scale, sqrt(maxPixels / currentPixels))
-        }
-        if scale >= 0.98 { return image }
-
-        let target = CGSize(width: max(1, floor(pixelWidth * scale)),
-                            height: max(1, floor(pixelHeight * scale)))
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        format.opaque = false
-        return UIGraphicsImageRenderer(size: target, format: format).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: target))
-        }
-    }
-
     private static func cost(of image: UIImage) -> Int {
-        Int(image.size.width * image.scale * image.size.height * image.scale * 4)
+        if let cgImage = image.cgImage {
+            return max(1, cgImage.bytesPerRow * cgImage.height)
+        }
+        return max(1, Int(image.size.width * image.scale * image.size.height * image.scale * 4))
     }
 
     private static var userAgent: String {

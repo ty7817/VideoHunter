@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Photos
 
 struct ImageThumbnailView: View {
     let item: ImageItem
@@ -29,8 +30,10 @@ struct ImageThumbnailView: View {
         .clipped()
         .contentShape(Rectangle())
         .task(id: item.key) {
-            loading = true
+            // 网格复用时先清掉旧图，避免新图片位置闪出上一张缩略图。
+            image = nil
             failed = false
+            loading = true
             let referer = item.frameURL.isEmpty ? nil : item.frameURL
             let loaded = await RemoteImageLoader.thumbnail(for: item.url,
                                                            referer: referer,
@@ -244,6 +247,7 @@ struct ImageDetailView: View {
     @State private var loading = true
     @State private var failed = false
     @State private var toast: String?
+    @State private var photoAlertMessage: String?
 
     var body: some View {
         ZStack {
@@ -292,6 +296,19 @@ struct ImageDetailView: View {
                     .background(Color.black.opacity(0.8), in: Capsule())
                     .padding(.top, 64)
             }
+        }
+        .alert("无法保存到相册", isPresented: Binding(
+            get: { photoAlertMessage != nil },
+            set: { if !$0 { photoAlertMessage = nil } }
+        )) {
+            Button("去设置") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("取消", role: .cancel) { }
+        } message: {
+            Text(photoAlertMessage ?? "请稍后重试。")
         }
     }
 
@@ -379,6 +396,8 @@ struct ImageDetailView: View {
 
     private func loadOriginal(force: Bool) async {
         if image != nil && !force { return }
+        // 重试或切换条目时先清掉旧原图，避免详情页复用闪图。
+        if force { image = nil }
         loading = true
         failed = false
         let referer = item.frameURL.isEmpty ? fallbackReferer : item.frameURL
@@ -391,8 +410,15 @@ struct ImageDetailView: View {
 
     private func saveToAlbum() {
         guard let image else { return }
-        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-        flash("已提交保存到相册")
+        Task { @MainActor in
+            do {
+                try await PhotoLibrarySaver.save(image)
+                flash("已保存到相册")
+            } catch {
+                let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                photoAlertMessage = message
+            }
+        }
     }
 
     private func share() {
@@ -404,6 +430,16 @@ struct ImageDetailView: View {
             while let presented = presenter.presentedViewController {
                 presenter = presented
             }
+
+            // iPad 上 UIActivityViewController 必须给 popover 提供锚点，否则会直接崩溃。
+            if let popover = activity.popoverPresentationController {
+                popover.sourceView = presenter.view
+                popover.sourceRect = CGRect(x: presenter.view.bounds.midX,
+                                            y: presenter.view.bounds.maxY - 72,
+                                            width: 1,
+                                            height: 1)
+                popover.permittedArrowDirections = [.down]
+            }
             presenter.present(activity, animated: true)
         }
     }
@@ -412,6 +448,53 @@ struct ImageDetailView: View {
         withAnimation { toast = text }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
             withAnimation { toast = nil }
+        }
+    }
+}
+
+private enum PhotoLibraryError: LocalizedError {
+    case permissionDenied
+    case saveFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .permissionDenied:
+            return "没有相册写入权限。请前往「设置 → 隐私与安全 → 照片」，允许「视频猎手」添加照片。"
+        case .saveFailed(let message):
+            return "保存失败：\(message)"
+        }
+    }
+}
+
+private enum PhotoLibrarySaver {
+    static func save(_ image: UIImage) async throws {
+        let status = await addOnlyAuthorizationStatus()
+        guard status == .authorized || status == .limited else {
+            throw PhotoLibraryError.permissionDenied
+        }
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            } completionHandler: { success, error in
+                if success {
+                    continuation.resume(returning: ())
+                } else {
+                    continuation.resume(throwing: PhotoLibraryError.saveFailed(
+                        error?.localizedDescription ?? "未知错误"
+                    ))
+                }
+            }
+        }
+    }
+
+    private static func addOnlyAuthorizationStatus() async -> PHAuthorizationStatus {
+        let current = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+        guard current == .notDetermined else { return current }
+        return await withCheckedContinuation { (continuation: CheckedContinuation<PHAuthorizationStatus, Never>) in
+            PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+                continuation.resume(returning: status)
+            }
         }
     }
 }

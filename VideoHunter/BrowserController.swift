@@ -208,6 +208,7 @@ final class BrowserController: NSObject, ObservableObject {
 
     func clearWebsiteData() {
         RemoteImageLoader.clearMemory()
+        VideoFrameStore.clearMemory()
         let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
         WKWebsiteDataStore.default().removeData(ofTypes: dataTypes, modifiedSince: .distantPast) { }
     }

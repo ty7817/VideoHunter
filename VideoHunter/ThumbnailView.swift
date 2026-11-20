@@ -11,24 +11,23 @@ import UIKit
 import AVFoundation
 
 enum ThumbnailStore {
-    private static let cache = NSCache<NSString, UIImage>()
-
     static func cached(for url: URL) -> UIImage? {
-        cache.object(forKey: url.absoluteString as NSString)
+        RemoteImageLoader.cachedThumbnail(for: url, maxWidth: 300)
     }
 
     static func load(for url: URL, referer: String?) async -> UIImage? {
-        if let cached = cached(for: url) { return cached }
-        let image = await RemoteImageLoader.thumbnail(for: url, referer: referer, maxWidth: 300)
-        if let image {
-            cache.setObject(image, forKey: url.absoluteString as NSString)
-        }
-        return image
+        await RemoteImageLoader.thumbnail(for: url, referer: referer, maxWidth: 300)
     }
 }
 
 enum VideoFrameStore {
-    private static let cache = NSCache<NSString, UIImage>()
+    private static let cache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 80
+        cache.totalCostLimit = 24 * 1024 * 1024
+        return cache
+    }()
+    private static let frameLimiter = AsyncLimiter(limit: 2)
 
     static func frame(for item: MediaItem) async -> UIImage? {
         guard item.kind == .mp4 else { return nil }
@@ -54,16 +53,30 @@ enum VideoFrameStore {
         generator.requestedTimeToleranceAfter = CMTime(seconds: 2, preferredTimescale: 600)
 
         let time = CMTime(seconds: 1.0, preferredTimescale: 600)
-        return await Task.detached(priority: .utility) { () -> UIImage? in
-            do {
-                let cgImage = try generator.copyCGImage(at: time, actualTime: nil)
-                let image = UIImage(cgImage: cgImage)
-                cache.setObject(image, forKey: key)
-                return image
-            } catch {
-                return nil
-            }
-        }.value
+        return await frameLimiter.withPermit {
+            let cgImage: CGImage? = await Task.detached(priority: .utility) {
+                do {
+                    return try generator.copyCGImage(at: time, actualTime: nil)
+                } catch {
+                    return nil
+                }
+            }.value
+            guard let cgImage else { return nil }
+            let image = UIImage(cgImage: cgImage)
+            cache.setObject(image, forKey: key, cost: cost(of: image))
+            return image
+        }
+    }
+
+    static func clearMemory() {
+        cache.removeAllObjects()
+    }
+
+    private static func cost(of image: UIImage) -> Int {
+        if let cgImage = image.cgImage {
+            return max(1, cgImage.bytesPerRow * cgImage.height)
+        }
+        return max(1, Int(image.size.width * image.scale * image.size.height * image.scale * 4))
     }
 }
 
@@ -107,6 +120,8 @@ struct MediaThumbnail: View {
     }
 
     private func loadThumbnail() async {
+        // 列表复用时先把旧图清掉，避免新条目瞬间闪出上一条视频的封面。
+        image = nil
         loading = true
         failed = false
 
