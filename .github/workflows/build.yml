@@ -20,23 +20,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Import 2.4 source if needed
+      - name: Import 2.5 source if needed
         env:
-          SOURCE_URL: 'https://aka.doubaocdn.com/s/7Cjb9ZWsjr'
-          SOURCE_SHA: '92fc5ad5eedb6674e0412ff7a923d4be384b5e61e0f6a4ac1b67acdf821aecde'
+          SOURCE_URL: 'https://aka.doubaocdn.com/s/8KQxQ2u52n'
+          SOURCE_SHA: '07763e93a2dc99614086cc25ff254c22f4fc8a1c3d8afb851e3e4f5cf85e37af'
         run: |
           set -euo pipefail
-          if ! grep -q 'MARKETING_VERSION = 2.4' VideoHunter.xcodeproj/project.pbxproj 2>/dev/null || [ ! -f VideoHunter/DownloadManager.swift ] || ! grep -q '2.4-pip-fixed' VideoHunter/PlayerView.swift 2>/dev/null; then
-            echo '2.4 source marker missing, importing verified archive'
+          if ! grep -q 'MARKETING_VERSION = 2.5' VideoHunter.xcodeproj/project.pbxproj 2>/dev/null \
+             || [ ! -f VideoHunter/SettingsStore.swift ] \
+             || [ ! -f VideoHunter/SettingsView.swift ] \
+             || ! grep -q '2.5-settings-center' VideoHunter/SettingsView.swift 2>/dev/null; then
+            echo '2.5 source marker missing, importing verified archive'
             curl -fL --retry 5 --retry-delay 3 --max-time 180 "$SOURCE_URL" -o "$RUNNER_TEMP/source.zip"
             printf '%s  %s\n' "$SOURCE_SHA" "$RUNNER_TEMP/source.zip" | shasum -a 256 -c -
             unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
-            test -f "$RUNNER_TEMP/source/VideoHunter/DownloadManager.swift"
-            test -f "$RUNNER_TEMP/source/VideoHunter/FramePolicy.swift"
-            test -f "$RUNNER_TEMP/source/VideoHunter/PrivacyInfo.xcprivacy"
-            grep -q 'MARKETING_VERSION = 2.4' "$RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj"
-            grep -q 'vhRoute' "$RUNNER_TEMP/source/VideoHunter/InjectedScript.swift"
-            grep -q '2.4-pip-fixed' "$RUNNER_TEMP/source/VideoHunter/PlayerView.swift"
+            test -f "$RUNNER_TEMP/source/VideoHunter/SettingsStore.swift"
+            test -f "$RUNNER_TEMP/source/VideoHunter/SettingsView.swift"
+            grep -q 'MARKETING_VERSION = 2.5' "$RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj"
+            grep -q '2.5-settings-center' "$RUNNER_TEMP/source/VideoHunter/SettingsView.swift"
             rm -rf VideoHunter VideoHunter.xcodeproj scripts
             cp -R "$RUNNER_TEMP/source/VideoHunter" .
             cp -R "$RUNNER_TEMP/source/VideoHunter.xcodeproj" .
@@ -44,10 +45,14 @@ jobs:
             cp "$RUNNER_TEMP/source/README.md" .
             cp "$RUNNER_TEMP/source/.gitignore" .
           else
-            echo 'repo already contains 2.4 source, building repo HEAD'
+            echo 'repo already contains 2.5 source, building repo HEAD'
           fi
-          grep -q 'MARKETING_VERSION = 2.4' VideoHunter.xcodeproj/project.pbxproj || { echo 'version is not 2.4'; exit 1; }
-          grep -q '2.4-pip-fixed' VideoHunter/PlayerView.swift || { echo 'fixed PiP code missing'; exit 1; }
+          grep -q 'MARKETING_VERSION = 2.5' VideoHunter.xcodeproj/project.pbxproj || { echo 'version is not 2.5'; exit 1; }
+          test -f VideoHunter/SettingsStore.swift || { echo 'SettingsStore.swift missing'; exit 1; }
+          test -f VideoHunter/SettingsView.swift || { echo 'SettingsView.swift missing'; exit 1; }
+          grep -q '2.5-settings-center' VideoHunter/SettingsView.swift || { echo 'settings center marker missing'; exit 1; }
+          grep -q 'MediaInfoReader' VideoHunter/SettingsView.swift || { echo 'playback info reader missing'; exit 1; }
+          grep -q 'PlaybackSession' VideoHunter/SettingsStore.swift || { echo 'PlaybackSession missing'; exit 1; }
           test -f VideoHunter/DownloadManager.swift || { echo 'DownloadManager.swift missing'; exit 1; }
           test -f VideoHunter/FramePolicy.swift || { echo 'FramePolicy.swift missing'; exit 1; }
           test -f VideoHunter/LibraryView.swift || { echo 'LibraryView.swift missing'; exit 1; }
@@ -69,19 +74,19 @@ jobs:
           xcodebuild -project VideoHunter.xcodeproj -target VideoHunter -configuration Release -sdk iphoneos SYMROOT=$RUNNER_TEMP/build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > $RUNNER_TEMP/build.log 2>&1
           STATUS=$?
           echo $STATUS > $RUNNER_TEMP/status
-          tail -n 220 $RUNNER_TEMP/build.log
+          tail -n 240 $RUNNER_TEMP/build.log
           mkdir -p dist
           cp $RUNNER_TEMP/build.log dist/build.log
           echo $STATUS > dist/status.txt
           if [ $STATUS = 0 ]; then
             APP=$(find $RUNNER_TEMP/build -maxdepth 3 -name VideoHunter.app | head -1)
             echo app=$APP
-            test -n $APP || { echo 'VideoHunter.app missing'; STATUS=1; echo 1 > dist/status.txt; }
+            test -n "$APP" || { echo 'VideoHunter.app missing'; STATUS=1; echo 1 > dist/status.txt; }
           fi
           if [ $STATUS = 0 ]; then
             rm -rf Payload
             mkdir -p Payload
-            cp -R $APP Payload/
+            cp -R "$APP" Payload/
             zip -qry dist/VideoHunter-unsigned.ipa Payload
           fi
           ls -lh dist
@@ -90,6 +95,6 @@ jobs:
           git add -A
           git add -f dist
           git rm -r --cached Payload >/dev/null 2>&1 || true
-          git commit -m 'build: 2.4 source and ipa [skip ci]' || echo nothing-to-commit
+          git commit -m 'build: 2.5 settings center source and ipa [skip ci]' || echo nothing-to-commit
           git push origin HEAD:main || echo push-failed
           [ $STATUS = 0 ] || exit 1
