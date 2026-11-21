@@ -20,40 +20,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Import 2.2 source if needed
+      - name: Import 2.3 source if needed
         env:
-          SOURCE_URL: 'https://aka.doubaocdn.com/s/fnLntcn30h'
-          SOURCE_SHA: '9cd8666657a97b46d4edd6cd94c133844adfa4a760a9a300e4cf02660cee1519'
+          SOURCE_URL: 'https://aka.doubaocdn.com/s/sq5HxWOHBM'
+          SOURCE_SHA: 'bc9c5e3d36e0e9a9672fda5fa7f5e391a1ac5f8c4ead7236cd22021e1c8e665e'
         run: |
           set -euo pipefail
-          if ! grep -q 'MARKETING_VERSION = 2.2' VideoHunter.xcodeproj/project.pbxproj 2>/dev/null || ! grep -q 'PhotoLibrarySaver' VideoHunter/ImageViews.swift 2>/dev/null; then
-            echo '2.2 source marker missing, importing verified archive'
-            curl -fL --retry 5 --retry-delay 3 --max-time 180 $SOURCE_URL -o $RUNNER_TEMP/source.zip
-            printf '%s  %s\n' $SOURCE_SHA $RUNNER_TEMP/source.zip | shasum -a 256 -c -
-            unzip -q $RUNNER_TEMP/source.zip -d $RUNNER_TEMP/source
-            test -f $RUNNER_TEMP/source/VideoHunter/ImageViews.swift
-            test -f $RUNNER_TEMP/source/VideoHunter/RemoteImageLoader.swift
-            grep -q 'MARKETING_VERSION = 2.2' $RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj
-            grep -q 'PhotoLibrarySaver' $RUNNER_TEMP/source/VideoHunter/ImageViews.swift
-            grep -q 'AsyncLimiter' $RUNNER_TEMP/source/VideoHunter/RemoteImageLoader.swift
+          if ! grep -q 'MARKETING_VERSION = 2.3' VideoHunter.xcodeproj/project.pbxproj 2>/dev/null || [ ! -f VideoHunter/DownloadManager.swift ]; then
+            echo '2.3 source marker missing, importing verified archive'
+            curl -fL --retry 5 --retry-delay 3 --max-time 180 "$SOURCE_URL" -o "$RUNNER_TEMP/source.zip"
+            printf '%s  %s\n' "$SOURCE_SHA" "$RUNNER_TEMP/source.zip" | shasum -a 256 -c -
+            unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
+            test -f "$RUNNER_TEMP/source/VideoHunter/DownloadManager.swift"
+            test -f "$RUNNER_TEMP/source/VideoHunter/FramePolicy.swift"
+            test -f "$RUNNER_TEMP/source/VideoHunter/PrivacyInfo.xcprivacy"
+            grep -q 'MARKETING_VERSION = 2.3' "$RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj"
+            grep -q 'vhRoute' "$RUNNER_TEMP/source/VideoHunter/InjectedScript.swift"
             rm -rf VideoHunter VideoHunter.xcodeproj scripts
-            cp -R $RUNNER_TEMP/source/VideoHunter .
-            cp -R $RUNNER_TEMP/source/VideoHunter.xcodeproj .
-            cp -R $RUNNER_TEMP/source/scripts .
-            cp $RUNNER_TEMP/source/README.md .
-            cp $RUNNER_TEMP/source/.gitignore .
+            cp -R "$RUNNER_TEMP/source/VideoHunter" .
+            cp -R "$RUNNER_TEMP/source/VideoHunter.xcodeproj" .
+            cp -R "$RUNNER_TEMP/source/scripts" .
+            cp "$RUNNER_TEMP/source/README.md" .
+            cp "$RUNNER_TEMP/source/.gitignore" .
           else
-            echo 'repo already contains 2.2 source, building repo HEAD'
+            echo 'repo already contains 2.3 source, building repo HEAD'
           fi
-          grep -q 'MARKETING_VERSION = 2.2' VideoHunter.xcodeproj/project.pbxproj || { echo 'version is not 2.2'; exit 1; }
-          test -f VideoHunter/ImageLibrary.swift || { echo 'ImageLibrary.swift missing'; exit 1; }
-          test -f VideoHunter/ImageViews.swift || { echo 'ImageViews.swift missing'; exit 1; }
-          test -f VideoHunter/RemoteImageLoader.swift || { echo 'RemoteImageLoader.swift missing'; exit 1; }
-          grep -q 'onGoHome' VideoHunter/PlayerView.swift || { echo 'player home hook missing'; exit 1; }
-          grep -q 'vhImage' VideoHunter/InjectedScript.swift || { echo 'image sniffer missing'; exit 1; }
-          grep -q 'PhotoLibrarySaver' VideoHunter/ImageViews.swift || { echo 'photo permission fix missing'; exit 1; }
-          grep -q 'AsyncLimiter' VideoHunter/RemoteImageLoader.swift || { echo 'image limiter missing'; exit 1; }
-          ls VideoHunter
+          grep -q 'MARKETING_VERSION = 2.3' VideoHunter.xcodeproj/project.pbxproj || { echo 'version is not 2.3'; exit 1; }
+          test -f VideoHunter/DownloadManager.swift || { echo 'DownloadManager.swift missing'; exit 1; }
+          test -f VideoHunter/FramePolicy.swift || { echo 'FramePolicy.swift missing'; exit 1; }
+          test -f VideoHunter/LibraryView.swift || { echo 'LibraryView.swift missing'; exit 1; }
+          test -f VideoHunter/PrivacyInfo.xcprivacy || { echo 'PrivacyInfo.xcprivacy missing'; exit 1; }
+          grep -q 'vhRoute' VideoHunter/InjectedScript.swift || { echo 'SPA route script missing'; exit 1; }
+          grep -q 'AVAudioSession' VideoHunter/PlayerView.swift || { echo 'audio session code missing'; exit 1; }
+          grep -q 'ImageIO' VideoHunter/RemoteImageLoader.swift || { echo 'image pipeline missing'; exit 1; }
+
+      - name: Test injected script
+        run: node scripts/test-injected.mjs
 
       - name: Build and publish
         run: |
@@ -83,6 +85,6 @@ jobs:
           git add -A
           git add -f dist
           git rm -r --cached Payload >/dev/null 2>&1 || true
-          git commit -m 'build: 2.2 source and ipa [skip ci]' || echo nothing-to-commit
+          git commit -m 'build: 2.3 source and ipa [skip ci]' || echo nothing-to-commit
           git push origin HEAD:main || echo push-failed
           [ $STATUS = 0 ] || exit 1
