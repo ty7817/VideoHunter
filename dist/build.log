@@ -36,8 +36,8 @@ ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/X
 
 ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
 
-Build description signature: 810bee4bd556ab88fac985bc6a1eb393
-Build description path: /Users/runner/work/_temp/build/XCBuildData/810bee4bd556ab88fac985bc6a1eb393.xcbuilddata
+Build description signature: 89218a4eadd672f934a3ec96020b299a
+Build description path: /Users/runner/work/_temp/build/XCBuildData/89218a4eadd672f934a3ec96020b299a.xcbuilddata
 ClangStatCache /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk /var/folders/9d/l02zfgrs7c16twd3wbpdmhkc0000gn/C/com.apple.DeveloperTools/16.4-16F6/Xcode/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache
     cd /Users/runner/work/VideoHunter/VideoHunter/VideoHunter.xcodeproj
     /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -o /var/folders/9d/l02zfgrs7c16twd3wbpdmhkc0000gn/C/com.apple.DeveloperTools/16.4-16F6/Xcode/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache
@@ -114,13 +114,13 @@ MkDir /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app (in target
     cd /Users/runner/work/VideoHunter/VideoHunter
     /bin/mkdir -p /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app
 
-MkDir /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/unthinned (in target 'VideoHunter' from project 'VideoHunter')
-    cd /Users/runner/work/VideoHunter/VideoHunter
-    /bin/mkdir -p /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/unthinned
-
 MkDir /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/thinned (in target 'VideoHunter' from project 'VideoHunter')
     cd /Users/runner/work/VideoHunter/VideoHunter
     /bin/mkdir -p /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/thinned
+
+MkDir /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/unthinned (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    /bin/mkdir -p /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/assetcatalog_output/unthinned
 
 GenerateAssetSymbols /Users/runner/work/VideoHunter/VideoHunter/VideoHunter/Assets.xcassets (in target 'VideoHunter' from project 'VideoHunter')
     cd /Users/runner/work/VideoHunter/VideoHunter
@@ -150,41 +150,37 @@ Failed frontend command:
 CompileSwift normal arm64 (in target 'VideoHunter' from project 'VideoHunter')
     cd /Users/runner/work/VideoHunter/VideoHunter
     
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/PlayerView.swift:103:67: error: cannot convert value of type 'Double' to expected argument type 'Float'
-        _rate = State(initialValue: AppSettings.shared.playerRate.rawValue)
-                                                                  ^
-                                    Float(                                )
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:675:34: warning: 'naturalSize' was deprecated in iOS 16.0: Use load(.naturalSize) instead
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:676:34: warning: 'naturalSize' was deprecated in iOS 16.0: Use load(.naturalSize) instead
                 let size = track.naturalSize
                                  ^
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:676:84: warning: 'preferredTransform' was deprecated in iOS 16.0: Use load(.preferredTransform) instead
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:677:84: warning: 'preferredTransform' was deprecated in iOS 16.0: Use load(.preferredTransform) instead
                 let transformed = CGRect(origin: .zero, size: size).applying(track.preferredTransform)
                                                                                    ^
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:683:33: warning: 'nominalFrameRate' was deprecated in iOS 16.0: Use load(.nominalFrameRate) instead
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:684:33: warning: 'nominalFrameRate' was deprecated in iOS 16.0: Use load(.nominalFrameRate) instead
                 let fps = track.nominalFrameRate
                                 ^
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:688:34: warning: 'estimatedDataRate' was deprecated in iOS 16.0: Use load(.estimatedDataRate) instead
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:689:34: warning: 'estimatedDataRate' was deprecated in iOS 16.0: Use load(.estimatedDataRate) instead
                 let rate = track.estimatedDataRate
                                  ^
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:695:44: warning: 'formatDescriptions' was deprecated in iOS 16.0: Use load(.formatDescriptions) instead
-                if let description = track.formatDescriptions.first {
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:696:69: error: conditional downcast to CoreFoundation type 'CMFormatDescription' will always succeed
+                if let description = track.formatDescriptions.first as? CMFormatDescription {
+                                                                    ^
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:696:69: note: did you mean to explicitly compare the CFTypeIDs of 'first' and 'CMFormatDescription'?
+                if let description = track.formatDescriptions.first as? CMFormatDescription {
+                                                                    ^
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:696:44: warning: 'formatDescriptions' was deprecated in iOS 16.0: Use load(.formatDescriptions) instead
+                if let description = track.formatDescriptions.first as? CMFormatDescription {
                                            ^
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:696:90: error: cannot convert value of type 'Any' to expected argument type 'CMFormatDescription'
-                    value.videoCodec = Self.codecName(CMFormatDescriptionGetMediaSubType(description))
-                                                                                         ^
-                                                                                                     as! CMFormatDescription
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:702:44: warning: 'formatDescriptions' was deprecated in iOS 16.0: Use load(.formatDescriptions) instead
-                if let description = track.formatDescriptions.first {
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:703:69: error: conditional downcast to CoreFoundation type 'CMAudioFormatDescription' (aka 'CMFormatDescription') will always succeed
+                if let description = track.formatDescriptions.first as? CMAudioFormatDescription {
+                                                                    ^
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:703:69: note: did you mean to explicitly compare the CFTypeIDs of 'first' and 'CMAudioFormatDescription' (aka 'CMFormatDescription')?
+                if let description = track.formatDescriptions.first as? CMAudioFormatDescription {
+                                                                    ^
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:703:44: warning: 'formatDescriptions' was deprecated in iOS 16.0: Use load(.formatDescriptions) instead
+                if let description = track.formatDescriptions.first as? CMAudioFormatDescription {
                                            ^
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:703:75: error: cannot convert value of type 'Any' to expected argument type 'CMFormatDescription'
-                    let mediaSubType = CMFormatDescriptionGetMediaSubType(description)
-                                                                          ^
-                                                                                      as! CMFormatDescription
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:705:85: error: cannot convert value of type 'Any' to expected argument type 'CMAudioFormatDescription' (aka 'CMFormatDescription')
-                    if let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee {
-                                                                                    ^
-                                                                                                as! CMAudioFormatDescription
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:715:34: warning: 'estimatedDataRate' was deprecated in iOS 16.0: Use load(.estimatedDataRate) instead
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:716:34: warning: 'estimatedDataRate' was deprecated in iOS 16.0: Use load(.estimatedDataRate) instead
                 let rate = track.estimatedDataRate
                                  ^
 

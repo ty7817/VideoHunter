@@ -5,6 +5,7 @@
 //  2.5 设置中心：八个分区全部接到真实偏好；播放信息从 AVAsset 轨道读取，
 //  读取不到的字段明确标“未知”，不伪造码率/帧率。
 //  2.5-settings-center
+//  2.5-settings-center-build2
 //
 
 import SwiftUI
@@ -692,14 +693,14 @@ enum MediaInfoReader {
                     value.videoBitrate = "自适应码率（未报告）"
                 }
 
-                if let description = track.formatDescriptions.first {
+                if let description = track.formatDescriptions.first as? CMFormatDescription {
                     value.videoCodec = Self.codecName(CMFormatDescriptionGetMediaSubType(description))
                 }
             }
 
             let audioTracks = try await asset.loadTracks(withMediaType: .audio)
             if let track = audioTracks.first {
-                if let description = track.formatDescriptions.first {
+                if let description = track.formatDescriptions.first as? CMAudioFormatDescription {
                     let mediaSubType = CMFormatDescriptionGetMediaSubType(description)
                     value.audioCodec = Self.codecName(mediaSubType)
                     if let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee {

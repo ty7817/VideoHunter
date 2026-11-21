@@ -100,7 +100,7 @@ struct PlayerScreen: View {
         self.playlist = queue
         let start = queue.firstIndex(where: { $0.id == item.id }) ?? 0
         _index = State(initialValue: start)
-        _rate = State(initialValue: AppSettings.shared.playerRate.rawValue)
+        _rate = State(initialValue: Float(AppSettings.shared.playerRate.rawValue))
         _fillScreen = State(initialValue: AppSettings.shared.fillMode == .fill)
     }
 
