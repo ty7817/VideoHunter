@@ -20,24 +20,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Import 2.5 source if needed
+      - name: Import 2.6 source if needed
         env:
-          SOURCE_URL: 'https://aka.doubaocdn.com/s/0TmDYdPSRV'
-          SOURCE_SHA: 'd6eb7a956e9747ad67965c5109e2712602c91ed65b5af4a69a2100f97b08fd69'
+          SOURCE_URL: 'https://aka.doubaocdn.com/s/4zyiQ4qLvk'
+          SOURCE_SHA: '795a68f5d156b58e7d1f36cb93918a67660d2de5daa56a247051ac7831b29232'
         run: |
           set -euo pipefail
-          if ! grep -q 'MARKETING_VERSION = 2.5' VideoHunter.xcodeproj/project.pbxproj 2>/dev/null \
+          if ! grep -q 'MARKETING_VERSION = 2.6' VideoHunter.xcodeproj/project.pbxproj 2>/dev/null \
              || [ ! -f VideoHunter/SettingsStore.swift ] \
              || [ ! -f VideoHunter/SettingsView.swift ] \
-             || ! grep -q '2.5-settings-center-build3' VideoHunter/SettingsView.swift 2>/dev/null; then
-            echo '2.5 source marker missing, importing verified archive'
+             || ! grep -q '2.6-window-settings' VideoHunter/SettingsView.swift 2>/dev/null; then
+            echo '2.6 source marker missing, importing verified archive'
             curl -fL --retry 5 --retry-delay 3 --max-time 180 "$SOURCE_URL" -o "$RUNNER_TEMP/source.zip"
             printf '%s  %s\n' "$SOURCE_SHA" "$RUNNER_TEMP/source.zip" | shasum -a 256 -c -
             unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
             test -f "$RUNNER_TEMP/source/VideoHunter/SettingsStore.swift"
             test -f "$RUNNER_TEMP/source/VideoHunter/SettingsView.swift"
-            grep -q 'MARKETING_VERSION = 2.5' "$RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj"
-            grep -q '2.5-settings-center-build3' "$RUNNER_TEMP/source/VideoHunter/SettingsView.swift"
+            grep -q 'MARKETING_VERSION = 2.6' "$RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj"
+            grep -q '2.6-window-settings' "$RUNNER_TEMP/source/VideoHunter/SettingsView.swift"
             rm -rf VideoHunter VideoHunter.xcodeproj scripts
             cp -R "$RUNNER_TEMP/source/VideoHunter" .
             cp -R "$RUNNER_TEMP/source/VideoHunter.xcodeproj" .
@@ -45,12 +45,12 @@ jobs:
             cp "$RUNNER_TEMP/source/README.md" .
             cp "$RUNNER_TEMP/source/.gitignore" .
           else
-            echo 'repo already contains 2.5 source, building repo HEAD'
+            echo 'repo already contains 2.6 source, building repo HEAD'
           fi
-          grep -q 'MARKETING_VERSION = 2.5' VideoHunter.xcodeproj/project.pbxproj || { echo 'version is not 2.5'; exit 1; }
+          grep -q 'MARKETING_VERSION = 2.6' VideoHunter.xcodeproj/project.pbxproj || { echo 'version is not 2.6'; exit 1; }
           test -f VideoHunter/SettingsStore.swift || { echo 'SettingsStore.swift missing'; exit 1; }
           test -f VideoHunter/SettingsView.swift || { echo 'SettingsView.swift missing'; exit 1; }
-          grep -q '2.5-settings-center-build3' VideoHunter/SettingsView.swift || { echo 'settings center marker missing'; exit 1; }
+          grep -q '2.6-window-settings' VideoHunter/SettingsView.swift || { echo 'settings center marker missing'; exit 1; }
           grep -q 'MediaInfoReader' VideoHunter/SettingsView.swift || { echo 'playback info reader missing'; exit 1; }
           grep -q 'PlaybackSession' VideoHunter/SettingsStore.swift || { echo 'PlaybackSession missing'; exit 1; }
           test -f VideoHunter/DownloadManager.swift || { echo 'DownloadManager.swift missing'; exit 1; }
@@ -63,6 +63,9 @@ jobs:
           grep -q 'background(withIdentifier:' VideoHunter/DownloadManager.swift || { echo 'background URLSession missing'; exit 1; }
           grep -q 'handleEventsForBackgroundURLSession' VideoHunter/VideoHunterApp.swift || { echo 'background session app delegate missing'; exit 1; }
           grep -q 'canStartPictureInPictureAutomaticallyFromInline' VideoHunter/PlayerView.swift || { echo 'auto PiP missing'; exit 1; }
+          grep -q 'WindowGroup(id: "settings")' VideoHunter/VideoHunterApp.swift || { echo 'settings window scene missing'; exit 1; }
+          grep -q 'SettingsWindowView' VideoHunter/SettingsView.swift || { echo 'settings window view missing'; exit 1; }
+          grep -q 'UIApplicationSupportsMultipleScenes' VideoHunter/Info.plist || { echo 'multiple scenes plist key missing'; exit 1; }
 
       - name: Test injected script
         run: node scripts/test-injected.mjs
@@ -95,6 +98,6 @@ jobs:
           git add -A
           git add -f dist
           git rm -r --cached Payload >/dev/null 2>&1 || true
-          git commit -m 'build: 2.5 settings center source and ipa [skip ci]' || echo nothing-to-commit
+          git commit -m 'build: 2.6 standalone settings and multi-window [skip ci]' || echo nothing-to-commit
           git push origin HEAD:main || echo push-failed
           [ $STATUS = 0 ] || exit 1
