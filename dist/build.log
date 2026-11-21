@@ -36,23 +36,23 @@ ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/X
 
 ExecuteExternalTool /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
 
-Build description signature: c529ab8e467a48bef983655c8045869a
-Build description path: /Users/runner/work/_temp/build/XCBuildData/c529ab8e467a48bef983655c8045869a.xcbuilddata
-CreateBuildDirectory /Users/runner/work/_temp/build
-    cd /Users/runner/work/VideoHunter/VideoHunter/VideoHunter.xcodeproj
-    builtin-create-build-directory /Users/runner/work/_temp/build
-
+Build description signature: e7fdbd7584f1009c96082070b26c630f
+Build description path: /Users/runner/work/_temp/build/XCBuildData/e7fdbd7584f1009c96082070b26c630f.xcbuilddata
 ClangStatCache /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk /var/folders/9d/l02zfgrs7c16twd3wbpdmhkc0000gn/C/com.apple.DeveloperTools/16.4-16F6/Xcode/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache
     cd /Users/runner/work/VideoHunter/VideoHunter/VideoHunter.xcodeproj
     /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk -o /var/folders/9d/l02zfgrs7c16twd3wbpdmhkc0000gn/C/com.apple.DeveloperTools/16.4-16F6/Xcode/SDKStatCaches.noindex/iphoneos18.5-22F76-a529daf784b3616c7c04a36aeb7f5c05.sdkstatcache
 
-CreateBuildDirectory /Users/runner/work/_temp/build/Release-iphoneos
+CreateBuildDirectory /Users/runner/work/_temp/build
     cd /Users/runner/work/VideoHunter/VideoHunter/VideoHunter.xcodeproj
-    builtin-create-build-directory /Users/runner/work/_temp/build/Release-iphoneos
+    builtin-create-build-directory /Users/runner/work/_temp/build
 
 WriteAuxiliaryFile /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter-a45d7e3f429fec9ab9c8e3704d6dd6eb-VFS-iphoneos/all-product-headers.yaml
     cd /Users/runner/work/VideoHunter/VideoHunter/VideoHunter.xcodeproj
     write-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter-a45d7e3f429fec9ab9c8e3704d6dd6eb-VFS-iphoneos/all-product-headers.yaml
+
+CreateBuildDirectory /Users/runner/work/_temp/build/Release-iphoneos
+    cd /Users/runner/work/VideoHunter/VideoHunter/VideoHunter.xcodeproj
+    builtin-create-build-directory /Users/runner/work/_temp/build/Release-iphoneos
 
 CreateBuildDirectory /Users/runner/work/_temp/build/EagerLinkingTBDs/Release-iphoneos
     cd /Users/runner/work/VideoHunter/VideoHunter/VideoHunter.xcodeproj
@@ -155,19 +155,19 @@ SwiftCompile normal arm64 Compiling\ VideoHunterApp.swift,\ ContentView.swift,\ 
 CompileSwift normal arm64 (in target 'VideoHunter' from project 'VideoHunter')
     cd /Users/runner/work/VideoHunter/VideoHunter
     
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:676:34: warning: 'naturalSize' was deprecated in iOS 16.0: Use load(.naturalSize) instead
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:757:34: warning: 'naturalSize' was deprecated in iOS 16.0: Use load(.naturalSize) instead
                 let size = track.naturalSize
                                  ^
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:677:84: warning: 'preferredTransform' was deprecated in iOS 16.0: Use load(.preferredTransform) instead
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:758:84: warning: 'preferredTransform' was deprecated in iOS 16.0: Use load(.preferredTransform) instead
                 let transformed = CGRect(origin: .zero, size: size).applying(track.preferredTransform)
                                                                                    ^
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:684:33: warning: 'nominalFrameRate' was deprecated in iOS 16.0: Use load(.nominalFrameRate) instead
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:765:33: warning: 'nominalFrameRate' was deprecated in iOS 16.0: Use load(.nominalFrameRate) instead
                 let fps = track.nominalFrameRate
                                 ^
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:689:34: warning: 'estimatedDataRate' was deprecated in iOS 16.0: Use load(.estimatedDataRate) instead
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:770:34: warning: 'estimatedDataRate' was deprecated in iOS 16.0: Use load(.estimatedDataRate) instead
                 let rate = track.estimatedDataRate
                                  ^
-/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:718:34: warning: 'estimatedDataRate' was deprecated in iOS 16.0: Use load(.estimatedDataRate) instead
+/Users/runner/work/VideoHunter/VideoHunter/VideoHunter/SettingsView.swift:799:34: warning: 'estimatedDataRate' was deprecated in iOS 16.0: Use load(.estimatedDataRate) instead
                 let rate = track.estimatedDataRate
                                  ^
 
@@ -196,13 +196,13 @@ SwiftMergeGeneratedHeaders /Users/runner/work/_temp/build/VideoHunter.build/Rele
     cd /Users/runner/work/VideoHunter/VideoHunter
     builtin-swiftHeaderTool -arch arm64 /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter-Swift.h -o /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/DerivedSources/VideoHunter-Swift.h
 
-Copy /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.swiftdoc /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftdoc (in target 'VideoHunter' from project 'VideoHunter')
-    cd /Users/runner/work/VideoHunter/VideoHunter
-    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftdoc /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.swiftdoc
-
 Copy /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.swiftmodule /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftmodule (in target 'VideoHunter' from project 'VideoHunter')
     cd /Users/runner/work/VideoHunter/VideoHunter
     builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftmodule /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.swiftmodule
+
+Copy /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.swiftdoc /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftdoc (in target 'VideoHunter' from project 'VideoHunter')
+    cd /Users/runner/work/VideoHunter/VideoHunter
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.swiftdoc /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.swiftdoc
 
 Copy /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.swiftmodule/arm64-apple-ios.abi.json /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.abi.json (in target 'VideoHunter' from project 'VideoHunter')
     cd /Users/runner/work/VideoHunter/VideoHunter
@@ -224,8 +224,8 @@ Ignoring --strip-bitcode because --sign was not passed
 ExtractAppIntentsMetadata (in target 'VideoHunter' from project 'VideoHunter')
     cd /Users/runner/work/VideoHunter/VideoHunter
     /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name VideoHunter --sdk-root /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk --xcode-version 16F6 --platform-family iOS --deployment-target 16.0 --bundle-identifier com.example.videohunter --output /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app --target-triple arm64-apple-ios16.0 --binary-file /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/VideoHunter --dependency-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter_dependency_info.dat --stringsdata-file /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.SwiftFileList --metadata-file-list /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter.DependencyMetadataFileList --static-metadata-file-list /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter.DependencyStaticMetadataFileList --swift-const-vals-list /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/Objects-normal/arm64/VideoHunter.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
-2026-11-21 09:28:08.713 appintentsmetadataprocessor[2300:10960] Starting appintentsmetadataprocessor export
-2026-11-21 09:28:08.720 appintentsmetadataprocessor[2300:10960] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+2026-11-21 14:37:27.009 appintentsmetadataprocessor[2201:10071] Starting appintentsmetadataprocessor export
+2026-11-21 14:37:27.016 appintentsmetadataprocessor[2201:10071] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
 
 GenerateDSYMFile /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app.dSYM /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/VideoHunter (in target 'VideoHunter' from project 'VideoHunter')
     cd /Users/runner/work/VideoHunter/VideoHunter
@@ -234,8 +234,8 @@ GenerateDSYMFile /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app
 AppIntentsSSUTraining (in target 'VideoHunter' from project 'VideoHunter')
     cd /Users/runner/work/VideoHunter/VideoHunter
     /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsnltrainingprocessor --infoplist-path /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/Info.plist --temp-dir-path /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/ssu --bundle-id com.example.videohunter --product-path /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app --extracted-metadata-path /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app/Metadata.appintents --metadata-file-list /Users/runner/work/_temp/build/VideoHunter.build/Release-iphoneos/VideoHunter.build/VideoHunter.DependencyMetadataFileList --archive-ssu-assets
-2026-11-21 09:28:08.763 appintentsnltrainingprocessor[2302:10964] Parsing options for appintentsnltrainingprocessor
-2026-11-21 09:28:08.764 appintentsnltrainingprocessor[2302:10964] No AppShortcuts found - Skipping.
+2026-11-21 14:37:27.072 appintentsnltrainingprocessor[2203:10077] Parsing options for appintentsnltrainingprocessor
+2026-11-21 14:37:27.073 appintentsnltrainingprocessor[2203:10077] No AppShortcuts found - Skipping.
 
 RegisterExecutionPolicyException /Users/runner/work/_temp/build/Release-iphoneos/VideoHunter.app (in target 'VideoHunter' from project 'VideoHunter')
     cd /Users/runner/work/VideoHunter/VideoHunter

@@ -46,8 +46,16 @@ struct VideoHunterApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        // 每个浏览器窗口拥有独立的 ContentView / BrowserController，
+        // iPad 上可通过 openWindow(id: "browser") 新建第二个浏览窗口。
+        WindowGroup(id: "browser") {
             ContentView()
+        }
+
+        // 独立的设置窗口。设置页本身也可以作为全屏页面打开；
+        // 这个 scene 用于 iPad 多窗口和“在独立窗口打开设置”。
+        WindowGroup("设置", id: "settings") {
+            SettingsWindowView()
         }
     }
 }

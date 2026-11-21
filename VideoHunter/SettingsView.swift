@@ -6,6 +6,7 @@
 //  读取不到的字段明确标“未知”，不伪造码率/帧率。
 //  2.5-settings-center
 //  2.5-settings-center-build3
+//  2.6-window-settings
 //
 
 import SwiftUI
@@ -18,6 +19,15 @@ struct SettingsView: View {
     @ObservedObject private var plugins = PluginStore.shared
     @ObservedObject private var playback = PlaybackSession.shared
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openWindow) private var openWindow
+
+    private let doneTitle: String
+    private let onDone: (() -> Void)?
+
+    init(doneTitle: String = "完成", onDone: (() -> Void)? = nil) {
+        self.doneTitle = doneTitle
+        self.onDone = onDone
+    }
 
     @State private var showPluginManager = false
     @State private var showResetConfirm = false
@@ -26,6 +36,7 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 headerSection
+                windowSection
                 pluginSection
                 backgroundSection
                 videoSection
@@ -41,13 +52,21 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("完成") { dismiss() }
-                        .fontWeight(.semibold)
+                    Button(doneTitle) {
+                        if let onDone {
+                            onDone()
+                        } else {
+                            dismiss()
+                        }
+                    }
+                    .fontWeight(.semibold)
                 }
             }
             .sheet(isPresented: $showPluginManager) {
                 PluginListView()
             }
+            .preferredColorScheme(settings.theme.colorScheme)
+            .tint(settings.accent.color)
             .confirmationDialog("恢复默认设置？", isPresented: $showResetConfirm, titleVisibility: .visible) {
                 Button("恢复默认", role: .destructive) {
                     settings.resetToDefaults()
@@ -119,9 +138,71 @@ struct SettingsView: View {
     }
 
     private var versionText: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.5"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "9"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.6"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "10"
         return "版本 \(version) · Build \(build)"
+    }
+
+    // MARK: - 窗口
+
+    private var windowSection: some View {
+        Section {
+            LabeledContent("多窗口支持") {
+                Text(WindowSupport.isAvailable ? "已开启" : "单窗口")
+                    .foregroundStyle(WindowSupport.isAvailable ? settings.accent.color : Color.secondary)
+            }
+
+            if WindowSupport.isAvailable {
+                Button {
+                    openWindow(id: "browser")
+                } label: {
+                    HStack(spacing: 12) {
+                        settingIcon("plus.square.on.square", color: .blue)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("新建浏览器窗口")
+                                .foregroundStyle(.primary)
+                            Text("新窗口有独立的网页、扫描结果和播放器")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+
+                Button {
+                    openWindow(id: "settings")
+                    if onDone == nil {
+                        dismiss()
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        settingIcon("macwindow.on.rectangle", color: .indigo)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(onDone == nil ? "在独立窗口打开设置" : "再开一个设置窗口")
+                                .foregroundStyle(.primary)
+                            Text("iPad 可并排查看浏览器和设置")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            } else {
+                Text("当前设备由系统限制为单窗口。iPad 支持多个浏览器窗口和独立设置窗口。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("窗口")
+        } footer: {
+            Text("多窗口只在 iPad 上由系统开放；每个浏览窗口互不影响，偏好设置、插件、离线媒体库和相册权限由所有窗口共享。")
+        }
     }
 
     // MARK: - 插件
@@ -813,5 +894,40 @@ enum MediaInfoReader {
             return String(format: "%d:%02d:%02d", hours, minutes, secs)
         }
         return String(format: "%d:%02d", minutes, secs)
+    }
+}
+
+// MARK: - 多窗口支持
+
+@MainActor
+enum WindowSupport {
+    /// iPad 才由系统开放多 scene；iPhone 仍保持单窗口。
+    static var isAvailable: Bool {
+        UIDevice.current.userInterfaceIdiom == .pad
+            && UIApplication.shared.supportsMultipleScenes
+    }
+}
+
+/// 独立设置窗口的根视图：提供“关闭窗口”，并在关闭时销毁当前 scene session。
+struct SettingsWindowView: View {
+    var body: some View {
+        SettingsView(doneTitle: "关闭窗口") {
+            closeCurrentWindow()
+        }
+    }
+
+    private func closeCurrentWindow() {
+        let activeScene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { scene in
+                scene.activationState == .foregroundActive
+                    && scene.windows.contains(where: { $0.isKeyWindow })
+            }
+        guard let activeScene else { return }
+        UIApplication.shared.requestSceneSessionDestruction(
+            activeScene.session,
+            options: nil,
+            errorHandler: nil
+        )
     }
 }

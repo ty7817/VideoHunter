@@ -14,9 +14,11 @@ struct ContentView: View {
     @StateObject private var siteCrawler = SiteCrawler()
     @StateObject private var downloads = DownloadManager.shared
     @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.openWindow) private var openWindow
     @State private var input = ""
     @FocusState private var addressFocused: Bool
     @State private var activeSheet: ActiveSheet?
+    @State private var showSettingsPage = false
     @State private var toastText: String?
 
     private enum ActiveSheet: String, Identifiable {
@@ -25,7 +27,6 @@ struct ContentView: View {
         case siteScan
         case plugins
         case library
-        case settings
 
         var id: String { rawValue }
     }
@@ -56,9 +57,10 @@ struct ContentView: View {
                 PluginListView()
             case .library:
                 LibraryView(downloads: downloads)
-            case .settings:
-                SettingsView()
             }
+        }
+        .fullScreenCover(isPresented: $showSettingsPage) {
+            SettingsView()
         }
         .overlay(alignment: .bottom) {
             toast
@@ -280,6 +282,17 @@ struct ContentView: View {
 
             Spacer(minLength: 0)
 
+            Button {
+                openSettingsPage()
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.footnote)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color(uiColor: .tertiarySystemFill)))
+            }
+            .accessibilityLabel("设置中心")
+
             Menu {
                 Button {
                     controller.setDesktopUserAgent(!controller.desktopUserAgent)
@@ -291,9 +304,16 @@ struct ContentView: View {
                     )
                 }
                 Button {
-                    activeSheet = .settings
+                    openSettingsPage()
                 } label: {
                     Label("设置中心", systemImage: "gearshape.2")
+                }
+                if WindowSupport.isAvailable {
+                    Button {
+                        openWindow(id: "browser")
+                    } label: {
+                        Label("新建浏览器窗口", systemImage: "plus.square.on.square")
+                    }
                 }
                 Button {
                     activeSheet = .plugins
@@ -358,6 +378,11 @@ struct ContentView: View {
     }
 
     // MARK: - 交互
+
+    private func openSettingsPage() {
+        addressFocused = false
+        showSettingsPage = true
+    }
 
     private func openURL() {
         addressFocused = false

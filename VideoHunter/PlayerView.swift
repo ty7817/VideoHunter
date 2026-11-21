@@ -206,7 +206,7 @@ struct PlayerScreen: View {
         .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)) { note in
             handleAudioRouteChange(note)
         }
-        .sheet(isPresented: $showSettings) {
+        .fullScreenCover(isPresented: $showSettings) {
             SettingsView()
         }
         .sheet(isPresented: $showPlaybackInfo) {
