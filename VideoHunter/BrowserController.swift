@@ -25,6 +25,7 @@ final class BrowserController: NSObject, ObservableObject {
     @Published var pageTitle = ""
     @Published var hasLoadedPage = false
     @Published var desktopUserAgent = false
+    @Published private(set) var allowCrossSiteFrames = false
     @Published var directItem: MediaItem?
     @Published var lastError: String?
 
@@ -37,6 +38,8 @@ final class BrowserController: NSObject, ObservableObject {
     private var snifferSubscription: AnyCancellable?
     private var imageSnifferSubscription: AnyCancellable?
     private var pluginObserver: NSObjectProtocol?
+    private var routeProxy: WeakScriptMessageHandler?
+    private var pageBaseGeneration = 0
 
     var pageURLString: String? { webView.url?.absoluteString }
     var pageURL: URL? { webView.url }
@@ -55,6 +58,9 @@ final class BrowserController: NSObject, ObservableObject {
         let userContentController = WKUserContentController()
         userContentController.add(sniffer, name: MediaSniffer.handlerName)
         userContentController.add(imageSniffer, name: ImageSniffer.handlerName)
+        let routeProxy = WeakScriptMessageHandler(target: self)
+        userContentController.add(routeProxy, name: "vhRoute")
+        self.routeProxy = routeProxy
         configuration.userContentController = userContentController
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -62,10 +68,15 @@ final class BrowserController: NSObject, ObservableObject {
         webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = true
         webView.scrollView.keyboardDismissMode = .onDrag
+        #if DEBUG
         if #available(iOS 16.4, *) {
             webView.isInspectable = true
         }
+        #endif
         self.webView = webView
+        sniffer.allowCrossSiteFrames = allowCrossSiteFrames
+        imageSniffer.allowCrossSiteFrames = allowCrossSiteFrames
+        webView.configuration.websiteDataStore.httpCookieStore.add(self)
 
         applyUserScripts()
 
@@ -75,6 +86,7 @@ final class BrowserController: NSObject, ObservableObject {
             queue: .main
         ) { [weak self] _ in
             guard let self = self else { return }
+            self.prepareForNewPage(target: self.webView.url)
             self.applyUserScripts()
             if self.hasLoadedPage {
                 self.webView.reload()
@@ -101,6 +113,8 @@ final class BrowserController: NSObject, ObservableObject {
         imageSnifferSubscription?.cancel()
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: MediaSniffer.handlerName)
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: ImageSniffer.handlerName)
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "vhRoute")
+        webView?.configuration.websiteDataStore.httpCookieStore.remove(self)
         webView?.stopLoading()
     }
 
@@ -108,6 +122,14 @@ final class BrowserController: NSObject, ObservableObject {
     private func applyUserScripts() {
         let controller = webView.configuration.userContentController
         controller.removeAllUserScripts()
+        let prelude = "window.__vhBaseGeneration = \(pageBaseGeneration);"
+        controller.addUserScript(
+            WKUserScript(
+                source: prelude,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false
+            )
+        )
         controller.addUserScript(
             WKUserScript(
                 source: InjectedScript.source,
@@ -151,6 +173,7 @@ final class BrowserController: NSObject, ObservableObject {
         }
 
         hasLoadedPage = true
+        prepareForNewPage(target: url)
         let request = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 25)
         webView.load(request)
     }
@@ -165,18 +188,21 @@ final class BrowserController: NSObject, ObservableObject {
 
     func goBack() {
         guard webView.canGoBack else { return }
+        prepareForNewPage(target: webView.url)
         webView.goBack()
         syncState()
     }
 
     func goForward() {
         guard webView.canGoForward else { return }
+        prepareForNewPage(target: webView.url)
         webView.goForward()
         syncState()
     }
 
     func reload() {
         guard hasLoadedPage else { return }
+        prepareForNewPage(target: webView.url)
         webView.reload()
     }
 
@@ -187,9 +213,12 @@ final class BrowserController: NSObject, ObservableObject {
 
     func goHome() {
         webView.stopLoading()
+        pageBaseGeneration += 1
+        sniffer.beginGeneration(pageBaseGeneration)
+        imageSniffer.beginGeneration(pageBaseGeneration)
+        sniffer.mainDocumentURL = nil
+        imageSniffer.mainDocumentURL = nil
         webView.loadHTMLString("", baseURL: nil)
-        sniffer.reset()
-        imageSniffer.reset()
         hasLoadedPage = false
         addressText = ""
         pageTitle = ""
@@ -201,6 +230,17 @@ final class BrowserController: NSObject, ObservableObject {
         progress = 0
     }
 
+    func setAllowCrossSiteFrames(_ enabled: Bool) {
+        guard allowCrossSiteFrames != enabled else { return }
+        allowCrossSiteFrames = enabled
+        sniffer.allowCrossSiteFrames = enabled
+        imageSniffer.allowCrossSiteFrames = enabled
+        if hasLoadedPage {
+            prepareForNewPage(target: webView.url)
+            webView.reload()
+        }
+    }
+
     func setDesktopUserAgent(_ enabled: Bool) {
         desktopUserAgent = enabled
         webView.customUserAgent = enabled ? Self.desktopUserAgentString : Self.mobileUserAgentString
@@ -208,9 +248,28 @@ final class BrowserController: NSObject, ObservableObject {
 
     func clearWebsiteData() {
         RemoteImageLoader.clearMemory()
+        RemoteImageLoader.clearDiskCache()
         VideoFrameStore.clearMemory()
+        let storage = HTTPCookieStorage.shared
+        storage.cookies?.forEach { storage.deleteCookie($0) }
+        URLCache.shared.removeAllCachedResponses()
+        webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in
+            let main = HTTPCookieStorage.shared
+            cookies.forEach { main.deleteCookie($0) }
+        }
         let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
-        WKWebsiteDataStore.default().removeData(ofTypes: dataTypes, modifiedSince: .distantPast) { }
+        webView.configuration.websiteDataStore.removeData(ofTypes: dataTypes, modifiedSince: .distantPast) { }
+    }
+
+    /// 新页面开始前递增 generation，并把旧页面识别结果全部清掉。
+    private func prepareForNewPage(target: URL?) {
+        pageBaseGeneration += 1
+        sniffer.beginGeneration(pageBaseGeneration)
+        imageSniffer.beginGeneration(pageBaseGeneration)
+        sniffer.mainDocumentURL = target
+        imageSniffer.mainDocumentURL = target
+        // 页面级 generation 存在注入脚本的 prelude 里，每次新导航都必须重建脚本。
+        applyUserScripts()
     }
 
     // MARK: - 内部
@@ -224,6 +283,8 @@ final class BrowserController: NSObject, ObservableObject {
         if let title = webView.title, !title.isEmpty {
             pageTitle = title
         }
+        sniffer.mainDocumentURL = webView.url
+        imageSniffer.mainDocumentURL = webView.url
     }
 
     private func syncCookies() {
@@ -289,9 +350,11 @@ extension BrowserController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        // 主文档开始渲染，说明页面已经切换，清空上一页的识别结果。
-        sniffer.reset()
-        imageSniffer.reset()
+        // 主文档开始渲染：同一 generation 下的旧 iframe 结果全部作废。
+        sniffer.beginGeneration(pageBaseGeneration)
+        imageSniffer.beginGeneration(pageBaseGeneration)
+        sniffer.mainDocumentURL = webView.url
+        imageSniffer.mainDocumentURL = webView.url
         syncState()
         syncCookies()
     }
@@ -314,12 +377,14 @@ extension BrowserController: WKNavigationDelegate {
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         lastError = "网页进程被系统回收，正在重新加载"
+        prepareForNewPage(target: webView.url)
         webView.reload()
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         // 处理 target=_blank 一类的新窗口链接，直接在当前 WebView 里打开。
         if navigationAction.targetFrame == nil, let url = navigationAction.request.url {
+            prepareForNewPage(target: url)
             webView.load(URLRequest(url: url))
             decisionHandler(.cancel)
             return
@@ -351,8 +416,56 @@ extension BrowserController: WKUIDelegate {
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
         if let url = navigationAction.request.url {
+            prepareForNewPage(target: url)
             webView.load(URLRequest(url: url))
         }
         return nil
+    }
+}
+
+
+// MARK: - SPA 路由与 Cookie 观察
+
+extension BrowserController: WKScriptMessageHandler {
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "vhRoute",
+              message.frameInfo.isMainFrame,
+              let body = message.body as? [String: Any] else { return }
+        guard let number = body["generation"] as? NSNumber else { return }
+        let generation = number.intValue
+        guard generation > pageBaseGeneration else { return }
+        pageBaseGeneration = generation
+        sniffer.advance(to: generation)
+        imageSniffer.advance(to: generation)
+        if let raw = body["url"] as? String, let url = URL(string: raw) {
+            addressText = raw
+            sniffer.mainDocumentURL = url
+            imageSniffer.mainDocumentURL = url
+        }
+        if let title = body["title"] as? String, !title.isEmpty {
+            pageTitle = title
+        }
+        syncCookies()
+    }
+}
+
+extension BrowserController: WKHTTPCookieStoreObserver {
+
+    func cookiesDidChange(in cookieStore: WKHTTPCookieStore) {
+        syncCookies()
+    }
+}
+
+/// WKUserContentController 会强引用 handler，用弱代理避免 BrowserController 循环引用。
+final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    private weak var target: WKScriptMessageHandler?
+
+    init(target: WKScriptMessageHandler) {
+        self.target = target
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.userContentController(userContentController, didReceive: message)
     }
 }

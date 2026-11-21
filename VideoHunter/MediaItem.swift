@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum MediaKind: String, CaseIterable {
+enum MediaKind: String, CaseIterable, Codable {
     case hls
     case mp4
     case dash
@@ -83,6 +83,8 @@ struct MediaItem: Identifiable, Hashable {
     let frameURL: String?
     var thumbnailURL: URL?
     let createdAt: Date
+    /// 是否来自跨站/第三方 iframe；用于列表标记和默认过滤后的可见性提示。
+    let isIframe: Bool
 
     init(
         url: URL,
@@ -91,7 +93,8 @@ struct MediaItem: Identifiable, Hashable {
         pageTitle: String = "",
         frameURL: String? = nil,
         thumbnailURL: URL? = nil,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        isIframe: Bool = false
     ) {
         self.id = UUID()
         self.url = url
@@ -101,6 +104,7 @@ struct MediaItem: Identifiable, Hashable {
         self.frameURL = frameURL
         self.thumbnailURL = thumbnailURL
         self.createdAt = createdAt
+        self.isIframe = isIframe
     }
 
     var key: String { url.absoluteString }

@@ -17,6 +17,7 @@ struct CrawledPage: Identifiable {
     let title: String
     let depth: Int
     var items: [MediaItem]
+    var images: [ImageItem] = []
 
     var displayTitle: String {
         if !title.isEmpty { return title }
@@ -28,11 +29,23 @@ struct CrawledPage: Identifiable {
 
 // MARK: - 单页抓取结果
 
+struct CrawlImage {
+    let url: String
+    let width: Int
+    let height: Int
+    let alt: String
+    let frame: String
+    let via: String
+    let context: String
+    let isIframe: Bool
+}
+
 struct CrawlHarvest {
     let url: URL?
     let title: String
     let links: [String]
-    let media: [(url: String, kind: String, thumb: String)]
+    let media: [(url: String, kind: String, thumb: String, isIframe: Bool)]
+    let images: [CrawlImage]
 }
 
 // MARK: - 抓取工作线程
@@ -42,13 +55,16 @@ final class CrawlWorker: NSObject {
     private var webView: WKWebView?
     private var pending = false
     private var completion: ((CrawlHarvest) -> Void)?
-    private var buffer: [String: (url: String, kind: String, thumb: String)] = [:]
+    private var buffer: [String: (url: String, kind: String, thumb: String, isIframe: Bool)] = [:]
     private var order: [String] = []
+    private var imageBuffer: [String: CrawlImage] = [:]
+    private var imageOrder: [String] = []
     private var settleWork: DispatchWorkItem?
     private var timeoutWork: DispatchWorkItem?
     private var generation = 0
     private var pageURL: URL?
     private var pageTitle = ""
+    var allowCrossSiteFrames = false
 
     private static let autoScrollScript = """
     (function () {
@@ -91,6 +107,7 @@ final class CrawlWorker: NSObject {
             controller.addUserScript(script)
         }
         controller.add(self, name: MediaSniffer.handlerName)
+        controller.add(self, name: ImageSniffer.handlerName)
         configuration.userContentController = controller
 
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 2, height: 2), configuration: configuration)
@@ -107,13 +124,15 @@ final class CrawlWorker: NSObject {
         completion: @escaping (CrawlHarvest) -> Void
     ) {
         guard !pending, let view = webView else {
-            completion(CrawlHarvest(url: url, title: "", links: [], media: []))
+            completion(CrawlHarvest(url: url, title: "", links: [], media: [], images: []))
             return
         }
 
         pending = true
         buffer.removeAll()
         order.removeAll()
+        imageBuffer.removeAll()
+        imageOrder.removeAll()
         pageTitle = ""
         pageURL = url
         self.completion = completion
@@ -143,6 +162,7 @@ final class CrawlWorker: NSObject {
         webView?.stopLoading()
         if let view = webView {
             view.configuration.userContentController.removeScriptMessageHandler(forName: MediaSniffer.handlerName)
+            view.configuration.userContentController.removeScriptMessageHandler(forName: ImageSniffer.handlerName)
             view.removeFromSuperview()
         }
         webView = nil
@@ -223,7 +243,8 @@ final class CrawlWorker: NSObject {
                             guard let raw = entry["url"] as? String else { continue }
                             let kind = (entry["kind"] as? String) ?? ""
                             let thumb = (entry["thumb"] as? String) ?? ""
-                            append(url: raw, kind: kind, thumb: thumb)
+                            let isIframe = (entry["isIframe"] as? Bool) ?? false
+                            append(url: raw, kind: kind, thumb: thumb, isIframe: isIframe)
                         }
                     }
                 }
@@ -240,23 +261,51 @@ final class CrawlWorker: NSObject {
         }
 
         let media = order.compactMap { buffer[$0] }
+        let images = imageOrder.compactMap { imageBuffer[$0] }
         let handler = completion
         completion = nil
-        handler?(CrawlHarvest(url: pageURL, title: pageTitle, links: links, media: media))
+        handler?(CrawlHarvest(url: pageURL, title: pageTitle, links: links, media: media, images: images))
     }
 
-    private func append(url: String, kind: String, thumb: String) {
+    private func append(url: String, kind: String, thumb: String, isIframe: Bool = false) {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let parsed = URL(string: trimmed), parsed.scheme != nil else { return }
         guard !MediaSniffer.isSegment(parsed) else { return }
         if let existing = buffer[trimmed] {
             if existing.thumb.isEmpty && !thumb.isEmpty {
-                buffer[trimmed] = (url: trimmed, kind: existing.kind, thumb: thumb)
+                buffer[trimmed] = (url: trimmed, kind: existing.kind, thumb: thumb, isIframe: existing.isIframe || isIframe)
             }
             return
         }
-        buffer[trimmed] = (url: trimmed, kind: kind, thumb: thumb)
+        buffer[trimmed] = (url: trimmed, kind: kind, thumb: thumb, isIframe: isIframe)
         order.append(trimmed)
+    }
+
+    private func appendImage(_ body: [String: Any]) {
+        guard let raw = body["url"] as? String,
+              let url = URL(string: raw),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else { return }
+        let trimmed = url.absoluteString
+        guard imageBuffer.index(forKey: trimmed) == nil else { return }
+        let width = (body["width"] as? NSNumber)?.intValue ?? 0
+        let height = (body["height"] as? NSNumber)?.intValue ?? 0
+        let alt = (body["alt"] as? String) ?? ""
+        let frame = (body["frame"] as? String) ?? ""
+        let via = (body["via"] as? String) ?? "img"
+        let context = (body["context"] as? String) ?? ""
+        let isIframe = (body["isIframe"] as? Bool) ?? false
+        imageBuffer[trimmed] = CrawlImage(
+            url: trimmed,
+            width: width,
+            height: height,
+            alt: alt,
+            frame: frame,
+            via: via,
+            context: context,
+            isIframe: isIframe
+        )
+        imageOrder.append(trimmed)
     }
 }
 
@@ -271,12 +320,14 @@ final class SiteCrawler: NSObject, ObservableObject {
     @Published var concurrency: Int = 3
     @Published var onlySameSite: Bool = true
     @Published var includeSubdomains: Bool = true
+    @Published private(set) var allowCrossSiteFrames = false
 
     // MARK: 状态
 
     @Published private(set) var isRunning = false
     @Published private(set) var visitedCount = 0
     @Published private(set) var foundCount = 0
+    @Published private(set) var foundImageCount = 0
     @Published private(set) var currentURL = ""
     @Published private(set) var pages: [CrawledPage] = []
     @Published private(set) var statusText = ""
@@ -297,6 +348,7 @@ final class SiteCrawler: NSObject, ObservableObject {
     private var queuedKeys: Set<String> = []
     private var visitedKeys: Set<String> = []
     private var mediaKeys: Set<String> = []
+    private var imageKeys: Set<String> = []
     private var activeCount = 0
     private var hitLimit = false
 
@@ -314,6 +366,11 @@ final class SiteCrawler: NSObject, ObservableObject {
     private static let maxConcurrency = 4
 
     // MARK: - 对外接口
+
+    func setAllowCrossSiteFrames(_ enabled: Bool) {
+        allowCrossSiteFrames = enabled
+        workers.forEach { $0.allowCrossSiteFrames = enabled }
+    }
 
     func start(from url: URL) {
         guard !isRunning else { return }
@@ -335,6 +392,7 @@ final class SiteCrawler: NSObject, ObservableObject {
         let count = max(1, min(concurrency, Self.maxConcurrency))
         workers = (0..<count).map { _ in
             let worker = CrawlWorker()
+            worker.allowCrossSiteFrames = allowCrossSiteFrames
             worker.prepare()
             return worker
         }
@@ -368,7 +426,7 @@ final class SiteCrawler: NSObject, ObservableObject {
         clock = nil
         statusText = pages.isEmpty
             ? "扫描已取消，共查看 \(visitedCount) 个页面，没有留下结果"
-            : "扫描已取消，已保留 \(pages.count) 个页面、\(foundCount) 个视频"
+            : "扫描已取消，已保留 \(pages.count) 个页面、\(foundCount) 个视频、\(foundImageCount) 张图片"
     }
 
     // MARK: - 状态复位
@@ -378,6 +436,7 @@ final class SiteCrawler: NSObject, ObservableObject {
         queuedKeys.removeAll()
         visitedKeys.removeAll()
         mediaKeys.removeAll()
+        imageKeys.removeAll()
         workers.forEach { $0.stop() }
         workers.removeAll()
         idleWorkers.removeAll()
@@ -389,6 +448,7 @@ final class SiteCrawler: NSObject, ObservableObject {
         pages = []
         visitedCount = 0
         foundCount = 0
+        foundImageCount = 0
         currentURL = ""
         statusText = ""
         elapsedSeconds = 0
@@ -522,13 +582,39 @@ final class SiteCrawler: NSObject, ObservableObject {
                 source: "page",
                 pageTitle: harvest.title,
                 frameURL: pageURL.absoluteString,
-                thumbnailURL: thumb
+                thumbnailURL: thumb,
+                isIframe: entry.isIframe
             ))
         }
 
-        if !kept.isEmpty {
-            pages.append(CrawledPage(url: pageURL, title: harvest.title, depth: candidate.depth, items: kept))
+        var keptImages: [ImageItem] = []
+        for entry in harvest.images {
+            guard let url = URL(string: entry.url), url.scheme != nil else { continue }
+            guard !imageKeys.contains(entry.url) else { continue }
+            imageKeys.insert(entry.url)
+            keptImages.append(ImageItem(
+                url: url,
+                width: entry.width,
+                height: entry.height,
+                alt: entry.alt,
+                pageTitle: harvest.title,
+                frameURL: entry.frame,
+                source: entry.via,
+                context: entry.context,
+                isIframe: entry.isIframe
+            ))
+        }
+
+        if !kept.isEmpty || !keptImages.isEmpty {
+            pages.append(CrawledPage(
+                url: pageURL,
+                title: harvest.title,
+                depth: candidate.depth,
+                items: kept,
+                images: keptImages
+            ))
             foundCount += kept.count
+            foundImageCount += keptImages.count
         }
 
         for link in harvest.links {
@@ -668,9 +754,9 @@ final class SiteCrawler: NSObject, ObservableObject {
         let note = reason ?? ""
 
         if pages.isEmpty {
-            statusText = "扫描结束：共查看 \(visitedKeys.count) 个页面，没有发现视频。\(note)"
+            statusText = "扫描结束：共查看 \(visitedKeys.count) 个页面，没有发现视频或图片。\(note)"
         } else {
-            statusText = "扫描结束：共查看 \(visitedKeys.count) 个页面，发现 \(foundCount) 个视频，用时 \(seconds) 秒。\(note)"
+            statusText = "扫描结束：共查看 \(visitedKeys.count) 个页面，发现 \(foundCount) 个视频、\(foundImageCount) 张图片，用时 \(seconds) 秒。\(note)"
         }
     }
 
@@ -854,12 +940,26 @@ extension CrawlWorker: WKNavigationDelegate {
 extension CrawlWorker: WKScriptMessageHandler {
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard pending, message.name == MediaSniffer.handlerName else { return }
-        guard let body = message.body as? [String: Any], let raw = body["url"] as? String else { return }
+        guard pending, let body = message.body as? [String: Any] else { return }
+        guard FramePolicy.shouldAccept(
+            frameInfo: message.frameInfo,
+            body: body,
+            mainURL: pageURL,
+            allowCrossSite: allowCrossSiteFrames
+        ) else { return }
+
+        if message.name == ImageSniffer.handlerName {
+            appendImage(body)
+            return
+        }
+
+        guard message.name == MediaSniffer.handlerName, let raw = body["url"] as? String else { return }
+        let isIframe = (body["isIframe"] as? Bool) ?? !message.frameInfo.isMainFrame
         append(
             url: raw,
             kind: (body["kind"] as? String) ?? "",
-            thumb: (body["thumb"] as? String) ?? ""
+            thumb: (body["thumb"] as? String) ?? "",
+            isIframe: isIframe
         )
     }
 }

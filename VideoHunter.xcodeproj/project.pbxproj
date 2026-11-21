@@ -26,6 +26,10 @@
 			1A0000000000000000000048 /* ImageLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000045 /* ImageLibrary.swift */; };
 			1A0000000000000000000049 /* ImageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000046 /* ImageViews.swift */; };
 			1A000000000000000000004A /* RemoteImageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000047 /* RemoteImageLoader.swift */; };
+			1A000000000000000000004B /* FramePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000000000000000000004F /* FramePolicy.swift */; };
+			1A000000000000000000004C /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000050 /* DownloadManager.swift */; };
+			1A000000000000000000004D /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000051 /* LibraryView.swift */; };
+			1A000000000000000000004E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000052 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,6 +54,10 @@
 			1A0000000000000000000045 /* ImageLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageLibrary.swift; sourceTree = "<group>"; };
 			1A0000000000000000000046 /* ImageViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViews.swift; sourceTree = "<group>"; };
 			1A0000000000000000000047 /* RemoteImageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteImageLoader.swift; sourceTree = "<group>"; };
+			1A000000000000000000004F /* FramePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FramePolicy.swift; sourceTree = "<group>"; };
+			1A0000000000000000000050 /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
+			1A0000000000000000000051 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+			1A0000000000000000000052 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,7 +108,11 @@
 					1A0000000000000000000045 /* ImageLibrary.swift */,
 					1A0000000000000000000046 /* ImageViews.swift */,
 					1A0000000000000000000047 /* RemoteImageLoader.swift */,
+					1A000000000000000000004F /* FramePolicy.swift */,
+					1A0000000000000000000050 /* DownloadManager.swift */,
+					1A0000000000000000000051 /* LibraryView.swift */,
 				1A0000000000000000000019 /* Assets.xcassets */,
+				1A0000000000000000000052 /* PrivacyInfo.xcprivacy */,
 			1A0000000000000000000018 /* Info.plist */,
 			);
 			path = VideoHunter;
@@ -165,6 +177,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			1A0000000000000000000028 /* Assets.xcassets in Resources */,
+			1A000000000000000000004E /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -193,6 +206,9 @@
 					1A0000000000000000000048 /* ImageLibrary.swift in Sources */,
 					1A0000000000000000000049 /* ImageViews.swift in Sources */,
 					1A000000000000000000004A /* RemoteImageLoader.swift in Sources */,
+			1A000000000000000000004B /* FramePolicy.swift in Sources */,
+			1A000000000000000000004C /* DownloadManager.swift in Sources */,
+			1A000000000000000000004D /* LibraryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -322,7 +338,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = VideoHunter/Info.plist;
@@ -330,7 +346,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.2;
+				MARKETING_VERSION = 2.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.videohunter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -344,7 +360,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = VideoHunter/Info.plist;
@@ -352,7 +368,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.2;
+				MARKETING_VERSION = 2.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.videohunter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

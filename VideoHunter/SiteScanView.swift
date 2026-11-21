@@ -20,6 +20,11 @@ struct SiteScanSheet: View {
     @State private var externalItem: MediaItem?
     @State private var showExternalDialog = false
     @State private var didCopyAll = false
+    @State private var resultTab: ResultTab = .media
+    @State private var previewImage: ImageItem?
+    @State private var searchText = ""
+    @State private var selectedKind: MediaKind?
+    @State private var visibleLimit = 80
 
     var body: some View {
         NavigationStack {
@@ -42,14 +47,26 @@ struct SiteScanSheet: View {
                         Button("关闭") { dismiss() }
                     }
                 }
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Menu {
+                        Button("全部格式") { selectedKind = nil }
+                        ForEach(MediaKind.allCases, id: \.self) { kind in
+                            Button(kind.label) { selectedKind = kind }
+                        }
+                    } label: {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                    }
+
                     Button {
-                        UIPasteboard.general.string = allItems.map { $0.url.absoluteString }.joined(separator: "\n")
+                        let urls = resultTab == .images
+                            ? filteredImages.map { $0.url.absoluteString }
+                            : filteredMedia.map { $0.url.absoluteString }
+                        UIPasteboard.general.string = urls.joined(separator: "\n")
                         didCopyAll = true
                     } label: {
                         Image(systemName: didCopyAll ? "checkmark" : "doc.on.doc")
                     }
-                    .disabled(allItems.isEmpty)
+                    .disabled(resultTab == .images ? filteredImages.isEmpty : filteredMedia.isEmpty)
                 }
             }
         }
@@ -60,6 +77,9 @@ struct SiteScanSheet: View {
                 referer: item.frameURL ?? startURL?.absoluteString,
                 playlist: allItems.filter { $0.playability == .native }
             )
+        }
+        .fullScreenCover(item: $previewImage) { image in
+            ImageDetailView(item: image, fallbackReferer: image.frameURL.isEmpty ? startURL?.absoluteString : image.frameURL)
         }
         .confirmationDialog(
             "这个链接无法在内置播放器里播放",
@@ -85,6 +105,13 @@ struct SiteScanSheet: View {
         var id: String { rawValue }
     }
 
+    private enum ResultTab: String, CaseIterable, Identifiable {
+        case media
+        case images
+
+        var id: String { rawValue }
+    }
+
     private struct CategoryGroup: Identifiable {
         let category: MediaCategory
         let items: [MediaItem]
@@ -92,15 +119,68 @@ struct SiteScanSheet: View {
         var id: String { category.rawValue }
     }
 
+    private struct PageSlice: Identifiable {
+        let page: CrawledPage
+        let items: [MediaItem]
+        var id: UUID { page.id }
+    }
+
+    private struct ImageGroup: Identifiable {
+        let category: ImageCategory
+        let items: [ImageItem]
+        var id: String { category.rawValue }
+    }
+
     private var allItems: [MediaItem] {
         crawler.pages.flatMap { $0.items }
     }
 
+    private var allImages: [ImageItem] {
+        crawler.pages.flatMap { $0.images }
+    }
+
+    private var filteredMedia: [MediaItem] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return allItems.filter { item in
+            if let selectedKind, item.kind != selectedKind { return false }
+            guard !query.isEmpty else { return true }
+            let haystack = [item.fileName, item.url.absoluteString, item.pageTitle, item.host].joined(separator: " ")
+            return haystack.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private var visibleMedia: [MediaItem] {
+        Array(filteredMedia.prefix(visibleLimit))
+    }
+
+    private var filteredPages: [PageSlice] {
+        let keys = Set(visibleMedia.map(\.key))
+        return crawler.pages.compactMap { page in
+            let items = page.items.filter { keys.contains($0.key) }
+            return items.isEmpty ? nil : PageSlice(page: page, items: items)
+        }
+    }
+
     private var categoryGroups: [CategoryGroup] {
-        let all = allItems
-        return MediaCategory.allCases.compactMap { category in
-            let list = all.filter { $0.category == category }
+        MediaCategory.allCases.compactMap { category in
+            let list = visibleMedia.filter { $0.category == category }
             return list.isEmpty ? nil : CategoryGroup(category: category, items: list)
+        }
+    }
+
+    private var filteredImages: [ImageItem] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return allImages.filter { image in
+            guard !query.isEmpty else { return true }
+            let haystack = [image.alt, image.url.absoluteString, image.pageTitle, image.host].joined(separator: " ")
+            return haystack.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private var imageGroups: [ImageGroup] {
+        ImageCategory.allCases.compactMap { category in
+            let list = filteredImages.filter { $0.category == category }
+            return list.isEmpty ? nil : ImageGroup(category: category, items: list)
         }
     }
 
@@ -118,6 +198,15 @@ struct SiteScanSheet: View {
                 Label("复制", systemImage: "doc.on.doc")
             }
             .tint(.orange)
+
+            if item.kind == .mp4 {
+                Button {
+                    DownloadManager.shared.start(item: item, referer: item.frameURL ?? startURL?.absoluteString, title: item.fileName)
+                } label: {
+                    Label("下载", systemImage: "arrow.down.circle")
+                }
+                .tint(.green)
+            }
 
             Button {
                 UIApplication.shared.open(item.url)
@@ -164,10 +253,14 @@ struct SiteScanSheet: View {
                 if crawler.onlySameSite {
                     Toggle("包含子域名", isOn: $crawler.includeSubdomains)
                 }
+                Toggle("包含跨站 iframe", isOn: Binding(
+                    get: { crawler.allowCrossSiteFrames },
+                    set: { crawler.setAllowCrossSiteFrames($0) }
+                ))
             } header: {
                 Text("扫描范围")
             } footer: {
-                Text("从起始页开始，逐页打开站内链接，自动收集每一页里的视频地址。页数越多、层级越深，耗时越长。会先尝试读取站点的 sitemap.xml。")
+                Text("从起始页开始，逐页打开站内链接，自动收集每一页里的视频和图片。跨站 iframe 默认过滤，避免把广告和统计页算进来；需要抓 YouTube/Bilibili 等嵌入内容时可打开。会先尝试读取站点的 sitemap.xml。")
             }
 
             Section {
@@ -225,7 +318,7 @@ struct SiteScanSheet: View {
                     Text("已扫描 \(crawler.visitedCount) / \(crawler.maxPages) 页")
                         .font(.footnote.weight(.medium))
                     Spacer()
-                    Text("\(crawler.foundCount) 个视频 · \(crawler.elapsedSeconds) 秒")
+                    Text("\(crawler.foundCount) 个视频 · \(crawler.foundImageCount) 张图片 · \(crawler.elapsedSeconds) 秒")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -323,43 +416,100 @@ struct SiteScanSheet: View {
                 HStack(spacing: 0) {
                     stat(title: "页面", value: "\(crawler.visitedCount)")
                     stat(title: "视频", value: "\(crawler.foundCount)")
+                    stat(title: "图片", value: "\(crawler.foundImageCount)")
                     stat(title: "耗时", value: "\(crawler.elapsedSeconds)s")
-                    stat(title: "均速", value: "\(crawler.pagesPerMinute)页/分")
                 }
                 .padding(.vertical, 4)
             }
 
             Section {
-                Picker("分组方式", selection: $groupMode) {
-                    Text("按页面").tag(GroupMode.page)
-                    Text("按分类").tag(GroupMode.category)
+                Picker("结果类型", selection: $resultTab) {
+                    Text("视频").tag(ResultTab.media)
+                    Text("图片").tag(ResultTab.images)
                 }
                 .pickerStyle(.segmented)
                 .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+
+                if resultTab == .media {
+                    Picker("分组方式", selection: $groupMode) {
+                        Text("按页面").tag(GroupMode.page)
+                        Text("按分类").tag(GroupMode.category)
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 6, trailing: 12))
+                }
             }
 
-            if groupMode == .page {
-                ForEach(crawler.pages) { page in
+            if resultTab == .media {
+                if filteredMedia.isEmpty {
                     Section {
-                        ForEach(page.items) { item in
-                            itemRow(item)
+                        Text("没有匹配的视频。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if groupMode == .page {
+                    ForEach(filteredPages) { slice in
+                        Section {
+                            ForEach(slice.items) { item in
+                                itemRow(item)
+                            }
+                        } header: {
+                            Text(slice.page.displayTitle)
+                        } footer: {
+                            Text(slice.page.url.absoluteString)
                         }
-                    } header: {
-                        Text(page.displayTitle)
-                    } footer: {
-                        Text(page.url.absoluteString)
+                    }
+                } else {
+                    ForEach(categoryGroups) { group in
+                        Section {
+                            ForEach(group.items) { item in
+                                itemRow(item)
+                            }
+                        } header: {
+                            HStack(spacing: 6) {
+                                Image(systemName: group.category.symbolName)
+                                Text("\(group.category.label) · \(group.items.count)")
+                            }
+                        }
+                    }
+                }
+
+                if filteredMedia.count > visibleMedia.count {
+                    Section {
+                        Button {
+                            visibleLimit += 80
+                        } label: {
+                            Label("加载更多（还有 \(filteredMedia.count - visibleMedia.count) 个）", systemImage: "chevron.down")
+                                .frame(maxWidth: .infinity)
+                        }
                     }
                 }
             } else {
-                ForEach(categoryGroups) { group in
+                if filteredImages.isEmpty {
                     Section {
-                        ForEach(group.items) { item in
-                            itemRow(item)
-                        }
-                    } header: {
-                        HStack(spacing: 6) {
-                            Image(systemName: group.category.symbolName)
-                            Text("\(group.category.label) · \(group.items.count)")
+                        Text("没有匹配的图片。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    ForEach(imageGroups) { group in
+                        Section {
+                            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                                ForEach(group.items) { image in
+                                    Button {
+                                        previewImage = image
+                                    } label: {
+                                        ImageTile(item: image)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        } header: {
+                            HStack(spacing: 6) {
+                                Image(systemName: group.category.symbolName)
+                                Text("\(group.category.label) · \(group.items.count)")
+                            }
                         }
                     }
                 }
@@ -377,6 +527,7 @@ struct SiteScanSheet: View {
             }
         }
         .listStyle(.insetGrouped)
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索标题、域名或链接")
     }
 
     private func stat(title: String, value: String) -> some View {

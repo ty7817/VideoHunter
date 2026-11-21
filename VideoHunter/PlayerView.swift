@@ -80,6 +80,8 @@ struct PlayerScreen: View {
     @State private var showControls = true
     @State private var errorText: String?
     @State private var didCopy = false
+    @State private var wasPlayingBeforeInterruption = false
+    @State private var wasPlayingBeforeRouteChange = false
 
     @State private var timeObserver: Any?
     @State private var observations: [NSKeyValueObservation] = []
@@ -181,6 +183,12 @@ struct PlayerScreen: View {
         .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { note in
             guard let finished = note.object as? AVPlayerItem, finished === player?.currentItem else { return }
             handlePlaybackEnd()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { note in
+            handleAudioInterruption(note)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)) { note in
+            handleAudioRouteChange(note)
         }
     }
 
@@ -566,6 +574,8 @@ struct PlayerScreen: View {
         if isPlaying {
             player.pause()
             isPlaying = false
+            wasPlayingBeforeInterruption = false
+            wasPlayingBeforeRouteChange = false
         } else {
             if duration > 0, position >= duration - 0.3 {
                 seek(to: 0)
@@ -654,6 +664,69 @@ struct PlayerScreen: View {
             pip.stopPictureInPicture()
         } else {
             pip.startPictureInPicture()
+        }
+    }
+
+    // MARK: - 音频中断与设备切换
+
+    private func handleAudioInterruption(_ note: Notification) {
+        guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+        switch type {
+        case .began:
+            wasPlayingBeforeInterruption = isPlaying
+            player?.pause()
+            isPlaying = false
+            updateNowPlayingInfo()
+        case .ended:
+            let optionsRaw = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            let options = AVAudioSession.InterruptionOptions(rawValue: optionsRaw)
+            let shouldResume = wasPlayingBeforeInterruption && options.contains(.shouldResume)
+            wasPlayingBeforeInterruption = false
+            if shouldResume {
+                activateAudioSession()
+                player?.play()
+                player?.rate = rate
+                isPlaying = true
+                updateNowPlayingInfo()
+            }
+        @unknown default:
+            break
+        }
+    }
+
+    private func handleAudioRouteChange(_ note: Notification) {
+        guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: raw) else { return }
+        switch reason {
+        case .oldDeviceUnavailable:
+            wasPlayingBeforeRouteChange = isPlaying
+            player?.pause()
+            isPlaying = false
+            updateNowPlayingInfo()
+            // 耳机拔出后继续外放播放；与系统默认“直接暂停”不同，这里按用户要求恢复。
+            if wasPlayingBeforeRouteChange {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [self] in
+                    guard scenePhase == .active, wasPlayingBeforeRouteChange, player != nil else { return }
+                    activateAudioSession()
+                    player?.play()
+                    player?.rate = rate
+                    isPlaying = true
+                    wasPlayingBeforeRouteChange = false
+                    updateNowPlayingInfo()
+                }
+            }
+        case .newDeviceAvailable:
+            if wasPlayingBeforeRouteChange, scenePhase == .active {
+                activateAudioSession()
+                player?.play()
+                player?.rate = rate
+                isPlaying = true
+                wasPlayingBeforeRouteChange = false
+                updateNowPlayingInfo()
+            }
+        default:
+            break
         }
     }
 

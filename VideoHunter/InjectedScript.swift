@@ -22,6 +22,13 @@ enum InjectedScript {
   var seen = Object.create(null);
   var imageSeen = Object.create(null);
   var imageCount = 0;
+  var pageGeneration = Number(window.__vhBaseGeneration || 0);
+  var lastRouteURL = String(location.href || '');
+  var routeHooksInstalled = false;
+
+  function isIframe() {
+    try { return window.top !== window; } catch (e) { return true; }
+  }
 
   function post(payload) {
     try {
@@ -34,6 +41,56 @@ enum InjectedScript {
     try {
       var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.vhImage;
       if (bridge) { bridge.postMessage(payload); }
+    } catch (e) {}
+  }
+
+  function postRoute(payload) {
+    try {
+      var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.vhRoute;
+      if (bridge) { bridge.postMessage(payload); }
+    } catch (e) {}
+  }
+
+  function routeChanged(reason) {
+    try {
+      var next = String(location.href || '');
+      if (next === lastRouteURL) { return; }
+      lastRouteURL = next;
+      pageGeneration += 1;
+      seen = Object.create(null);
+      imageSeen = Object.create(null);
+      imageCount = 0;
+      pageImageCache = '';
+      postRoute({
+        generation: pageGeneration,
+        url: next.slice(0, 500),
+        title: (document.title || '').slice(0, 160),
+        reason: reason || 'route',
+        isIframe: isIframe()
+      });
+      scheduleScan();
+      setTimeout(function () { scanScripts(); fullScan(); }, 900);
+    } catch (e) {}
+  }
+
+  function installRouteHooks() {
+    if (routeHooksInstalled) { return; }
+    routeHooksInstalled = true;
+    try {
+      var pushState = history.pushState;
+      var replaceState = history.replaceState;
+      history.pushState = function () {
+        var result = pushState.apply(this, arguments);
+        setTimeout(function () { routeChanged('pushState'); }, 0);
+        return result;
+      };
+      history.replaceState = function () {
+        var result = replaceState.apply(this, arguments);
+        setTimeout(function () { routeChanged('replaceState'); }, 0);
+        return result;
+      };
+      window.addEventListener('popstate', function () { setTimeout(function () { routeChanged('popstate'); }, 0); });
+      window.addEventListener('hashchange', function () { setTimeout(function () { routeChanged('hashchange'); }, 0); });
     } catch (e) {}
   }
 
@@ -123,7 +180,9 @@ enum InjectedScript {
         title: (document.title || '').slice(0, 120),
         frame: String(location.href || '').slice(0, 500),
         via: via || 'img',
-        context: context || imageContext(node)
+        context: context || imageContext(node),
+        generation: pageGeneration,
+        isIframe: isIframe()
       });
     } catch (e) {}
   }
@@ -290,7 +349,9 @@ enum InjectedScript {
             via: via || 'dom',
             title: (document.title || '').slice(0, 120),
             frame: String(location.href || '').slice(0, 500),
-            thumb: image
+            thumb: image,
+            generation: pageGeneration,
+            isIframe: isIframe()
           });
         }
         return;
@@ -302,7 +363,9 @@ enum InjectedScript {
         via: via || 'dom',
         title: (document.title || '').slice(0, 120),
         frame: String(location.href || '').slice(0, 500),
-        thumb: image || ''
+        thumb: image || '',
+        generation: pageGeneration,
+        isIframe: isIframe()
       });
     } catch (e) {}
   }
@@ -485,6 +548,7 @@ enum InjectedScript {
   }
 
   function boot() {
+    installRouteHooks();
     fullScan();
     scanScripts();
     setTimeout(function () { fullScan(); scanScripts(); }, 1200);
@@ -545,7 +609,9 @@ enum InjectedScript {
       links: [],
       media: [],
       title: (document.title || '').slice(0, 160),
-      url: String(location.href || '')
+      url: String(location.href || ''),
+      generation: pageGeneration,
+      isIframe: isIframe()
     };
     try {
       var limit = (typeof maxLinks === 'number' && maxLinks > 0) ? maxLinks : 60;

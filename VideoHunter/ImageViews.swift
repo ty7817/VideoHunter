@@ -97,6 +97,12 @@ struct ImageListSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var preview: ImageItem?
     @State private var toast: String?
+    @State private var selecting = false
+    @State private var selected = Set<String>()
+    @State private var saving = false
+    @State private var saveProgress = ""
+    @State private var batchAlert: String?
+    @State private var batchPermissionDenied = false
 
     private struct ImageGroup: Identifiable {
         let category: ImageCategory
@@ -131,13 +137,33 @@ struct ImageListSheet: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("关闭") { dismiss() }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        copyAll()
-                    } label: {
-                        Image(systemName: "doc.on.doc")
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    if selecting {
+                        Button("取消") {
+                            selecting = false
+                            selected.removeAll()
+                        }
+                        Button(saving ? "保存中…" : "保存 \(selected.count)") {
+                            Task { await saveSelected() }
+                        }
+                        .disabled(selected.isEmpty || saving)
+                    } else {
+                        Menu {
+                            Button {
+                                selecting = true
+                            } label: {
+                                Label("批量选择图片", systemImage: "checkmark.circle")
+                            }
+                            Button {
+                                copyAll()
+                            } label: {
+                                Label("复制全部链接", systemImage: "doc.on.doc")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                        .disabled(sniffer.items.isEmpty)
                     }
-                    .disabled(sniffer.items.isEmpty)
                 }
             }
         }
@@ -156,6 +182,59 @@ struct ImageListSheet: View {
         .fullScreenCover(item: $preview) { item in
             ImageDetailView(item: item, fallbackReferer: pageURL)
         }
+        .safeAreaInset(edge: .bottom) {
+            if selecting {
+                batchBar
+            }
+        }
+        .alert("批量保存", isPresented: Binding(
+            get: { batchAlert != nil },
+            set: { if !$0 { batchAlert = nil; batchPermissionDenied = false } }
+        )) {
+            if batchPermissionDenied {
+                Button("去设置") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            }
+            Button("好") { batchAlert = nil; batchPermissionDenied = false }
+        } message: {
+            Text(batchAlert ?? "")
+        }
+    }
+
+    private var batchBar: some View {
+        HStack(spacing: 12) {
+            if saving {
+                ProgressView()
+                Text(saveProgress.isEmpty ? "正在保存…" : saveProgress)
+                    .font(.footnote)
+            } else {
+                Button(selected.count == sniffer.items.count ? "取消全选" : "全选") {
+                    if selected.count == sniffer.items.count {
+                        selected.removeAll()
+                    } else {
+                        selected = Set(sniffer.items.map(\.key))
+                    }
+                }
+                .font(.footnote.weight(.medium))
+                Text("已选 \(selected.count) 张")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    Task { await saveSelected() }
+                } label: {
+                    Label("保存到相册", systemImage: "square.and.arrow.down")
+                        .font(.footnote.weight(.semibold))
+                }
+                .disabled(selected.isEmpty)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.bar)
     }
 
     private var imageContent: some View {
@@ -191,9 +270,27 @@ struct ImageListSheet: View {
                         LazyVGrid(columns: columns, spacing: 10) {
                             ForEach(group.items) { item in
                                 Button {
-                                    preview = item
+                                    if selecting {
+                                        if selected.contains(item.key) {
+                                            selected.remove(item.key)
+                                        } else {
+                                            selected.insert(item.key)
+                                        }
+                                    } else {
+                                        preview = item
+                                    }
                                 } label: {
                                     ImageTile(item: item)
+                                        .overlay(alignment: .topLeading) {
+                                            if selecting {
+                                                Image(systemName: selected.contains(item.key) ? "checkmark.circle.fill" : "circle")
+                                                    .font(.title3.weight(.semibold))
+                                                    .foregroundStyle(selected.contains(item.key) ? Color.accentColor : Color.white)
+                                                    .padding(7)
+                                                    .background(Color.black.opacity(0.55), in: Circle())
+                                                    .padding(6)
+                                            }
+                                        }
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -226,6 +323,45 @@ struct ImageListSheet: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
+    }
+
+    @MainActor
+    private func saveSelected() async {
+        guard !saving, !selected.isEmpty else { return }
+        let picks = sniffer.items.filter { selected.contains($0.key) }
+        guard !picks.isEmpty else { return }
+        saving = true
+        var saved = 0
+        var failed = 0
+        var permissionDenied = false
+        for (index, item) in picks.enumerated() {
+            saveProgress = "\(index + 1) / \(picks.count)"
+            if let image = await RemoteImageLoader.image(for: item.url, referer: pageURL) {
+                do {
+                    try await PhotoLibrarySaver.save(image)
+                    saved += 1
+                } catch let error as PhotoLibraryError {
+                    if case .permissionDenied = error {
+                        permissionDenied = true
+                        failed += picks.count - index
+                        break
+                    }
+                    failed += 1
+                } catch {
+                    failed += 1
+                }
+            } else {
+                failed += 1
+            }
+        }
+        saving = false
+        saveProgress = ""
+        selecting = false
+        selected.removeAll()
+        batchPermissionDenied = permissionDenied
+        batchAlert = permissionDenied
+            ? "没有相册写入权限，未能保存。请前往设置允许“视频猎手”添加照片。"
+            : "已保存 \(saved) 张，失败 \(failed) 张。"
     }
 
     private func copyAll() {
@@ -467,24 +603,34 @@ private enum PhotoLibraryError: LocalizedError {
 }
 
 private enum PhotoLibrarySaver {
+    private typealias SaveContinuation = CheckedContinuation<Void, Error>
+
     static func save(_ image: UIImage) async throws {
         let status = await addOnlyAuthorizationStatus()
         guard status == .authorized || status == .limited else {
             throw PhotoLibraryError.permissionDenied
         }
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            PHPhotoLibrary.shared().performChanges {
+        try await withCheckedThrowingContinuation { (continuation: SaveContinuation) in
+            PHPhotoLibrary.shared().performChanges({
                 PHAssetChangeRequest.creationRequestForAsset(from: image)
-            } completionHandler: { success, error in
-                if success {
-                    continuation.resume(returning: ())
-                } else {
-                    continuation.resume(throwing: PhotoLibraryError.saveFailed(
-                        error?.localizedDescription ?? "未知错误"
-                    ))
-                }
-            }
+            }, completionHandler: { success, error in
+                resume(continuation, success: success, error: error)
+            })
+        }
+    }
+
+    private static func resume(
+        _ continuation: SaveContinuation,
+        success: Bool,
+        error: Error?
+    ) {
+        if success {
+            continuation.resume(returning: ())
+        } else {
+            continuation.resume(throwing: PhotoLibraryError.saveFailed(
+                error?.localizedDescription ?? "未知错误"
+            ))
         }
     }
 

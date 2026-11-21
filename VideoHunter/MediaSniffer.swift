@@ -18,6 +18,12 @@ final class MediaSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
 
     @Published private(set) var items: [MediaItem] = []
 
+    /// 主文档地址，用于判断 iframe 是否跨站。
+    var mainDocumentURL: URL?
+    /// 默认只接收主文档和同站 iframe；用户可显式打开跨站 iframe。
+    var allowCrossSiteFrames = false
+
+    private var generation = 0
     private var store: [String: MediaItem] = [:]
     private var order: [String] = []
     private var flushWork: DispatchWorkItem?
@@ -34,11 +40,33 @@ final class MediaSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
         }
     }
 
+    func beginGeneration(_ value: Int) {
+        generation = value
+        reset()
+    }
+
+    func advance(to value: Int) {
+        guard value > generation else { return }
+        generation = value
+        reset()
+    }
+
     // MARK: - WKScriptMessageHandler
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == Self.handlerName else { return }
         guard let body = message.body as? [String: Any] else { return }
+        if let incoming = body["generation"] as? NSNumber {
+            let value = incoming.intValue
+            if value < generation { return }
+            if value > generation { advance(to: value) }
+        }
+        guard FramePolicy.shouldAccept(
+            frameInfo: message.frameInfo,
+            body: body,
+            mainURL: mainDocumentURL,
+            allowCrossSite: allowCrossSiteFrames
+        ) else { return }
         guard let raw = (body["url"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
             return
         }
@@ -54,6 +82,7 @@ final class MediaSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
         let title = (body["title"] as? String) ?? ""
         let frame = body["frame"] as? String
         let source = (body["via"] as? String) ?? "dom"
+        let isIframe = (body["isIframe"] as? Bool) ?? !message.frameInfo.isMainFrame
 
         var thumb: URL?
         if let rawThumb = body["thumb"] as? String,
@@ -68,7 +97,8 @@ final class MediaSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
             source: source,
             pageTitle: title,
             frameURL: frame,
-            thumbnailURL: thumb
+            thumbnailURL: thumb,
+            isIframe: isIframe
         ))
     }
 

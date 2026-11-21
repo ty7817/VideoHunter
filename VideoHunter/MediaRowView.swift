@@ -36,6 +36,15 @@ struct MediaRowView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+
+                    if item.isIframe {
+                        Text("iframe")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.orange.opacity(0.13), in: Capsule())
+                            .foregroundStyle(.orange)
+                    }
                 }
             }
 

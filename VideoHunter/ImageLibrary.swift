@@ -65,6 +65,7 @@ struct ImageItem: Identifiable, Hashable {
     let source: String
     let context: String
     let createdAt: Date
+    let isIframe: Bool
 
     init(id: UUID = UUID(),
          url: URL,
@@ -75,7 +76,8 @@ struct ImageItem: Identifiable, Hashable {
          frameURL: String,
          source: String,
          context: String,
-         createdAt: Date = Date()) {
+         createdAt: Date = Date(),
+         isIframe: Bool = false) {
         self.id = id
         self.url = url
         self.width = max(0, width)
@@ -86,6 +88,7 @@ struct ImageItem: Identifiable, Hashable {
         self.source = source
         self.context = context
         self.createdAt = createdAt
+        self.isIframe = isIframe
     }
 
     var key: String { url.absoluteString }
@@ -161,18 +164,45 @@ final class ImageSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
 
     @Published private(set) var items: [ImageItem] = []
 
+    var mainDocumentURL: URL?
+    var allowCrossSiteFrames = false
+    private var generation = 0
+
     private var publishWorkItem: DispatchWorkItem?
 
     func reset() {
         publishWorkItem?.cancel()
+        publishWorkItem = nil
         items = []
+    }
+
+    func beginGeneration(_ value: Int) {
+        generation = value
+        reset()
+    }
+
+    func advance(to value: Int) {
+        guard value > generation else { return }
+        generation = value
+        reset()
     }
 
     func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
         guard message.name == Self.handlerName,
-              let body = message.body as? [String: Any],
-              let raw = body["url"] as? String,
+              let body = message.body as? [String: Any] else { return }
+        if let incoming = body["generation"] as? NSNumber {
+            let value = incoming.intValue
+            if value < generation { return }
+            if value > generation { advance(to: value) }
+        }
+        guard FramePolicy.shouldAccept(
+            frameInfo: message.frameInfo,
+            body: body,
+            mainURL: mainDocumentURL,
+            allowCrossSite: allowCrossSiteFrames
+        ) else { return }
+        guard let raw = body["url"] as? String,
               !raw.isEmpty,
               let url = URL(string: raw),
               let scheme = url.scheme?.lowercased(),
@@ -185,6 +215,7 @@ final class ImageSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
         let frame = (body["frame"] as? String) ?? ""
         let via = (body["via"] as? String) ?? "img"
         let context = (body["context"] as? String) ?? ""
+        let isIframe = (body["isIframe"] as? Bool) ?? !message.frameInfo.isMainFrame
 
         if let index = items.firstIndex(where: { $0.url.absoluteString == url.absoluteString }) {
             var existing = items[index]
@@ -216,7 +247,8 @@ final class ImageSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
                              pageTitle: title,
                              frameURL: frame,
                              source: via,
-                             context: context)
+                             context: context,
+                             isIframe: isIframe)
         items.append(item)
         schedulePublish()
     }

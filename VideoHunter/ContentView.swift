@@ -12,6 +12,7 @@ import Combine
 struct ContentView: View {
     @StateObject private var controller = BrowserController()
     @StateObject private var siteCrawler = SiteCrawler()
+    @StateObject private var downloads = DownloadManager.shared
     @State private var input = ""
     @FocusState private var addressFocused: Bool
     @State private var activeSheet: ActiveSheet?
@@ -22,6 +23,7 @@ struct ContentView: View {
         case imageList
         case siteScan
         case plugins
+        case library
 
         var id: String { rawValue }
     }
@@ -33,7 +35,8 @@ struct ContentView: View {
         }
         .background(Color(uiColor: .systemBackground))
         .fullScreenCover(item: $controller.directItem) { item in
-            PlayerScreen(item: item, referer: controller.pageURLString, onGoHome: { controller.goHome() })
+            // 直链播放不应带当前网页的 Referer，否则部分 CDN 会返回 403。
+            PlayerScreen(item: item, referer: nil, onGoHome: { controller.goHome() })
         }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
@@ -49,6 +52,8 @@ struct ContentView: View {
                 )
             case .plugins:
                 PluginListView()
+            case .library:
+                LibraryView(downloads: downloads)
             }
         }
         .overlay(alignment: .bottom) {
@@ -285,10 +290,24 @@ struct ContentView: View {
                     Label("插件管理", systemImage: "puzzlepiece.extension")
                 }
                 Button {
-                    controller.clearWebsiteData()
-                    flash("已清除网页缓存，重新加载后生效")
+                    activeSheet = .library
                 } label: {
-                    Label("清除网页缓存", systemImage: "trash")
+                    Label("离线媒体库（\(downloads.records.count)）", systemImage: "arrow.down.circle")
+                }
+                Button {
+                    controller.setAllowCrossSiteFrames(!controller.allowCrossSiteFrames)
+                    flash(controller.allowCrossSiteFrames ? "已包含跨站 iframe，正在重新扫描" : "已过滤跨站 iframe")
+                } label: {
+                    Label(
+                        controller.allowCrossSiteFrames ? "只扫描同站 iframe" : "包含跨站 iframe",
+                        systemImage: "rectangle.on.rectangle.slash"
+                    )
+                }
+                Button {
+                    controller.clearWebsiteData()
+                    flash("已清除 Cookie、缓存和网页数据")
+                } label: {
+                    Label("清除 Cookie 与缓存", systemImage: "trash")
                 }
                 Button {
                     controller.goHome()
@@ -376,6 +395,11 @@ struct MediaListSheet: View {
     @State private var externalItem: MediaItem?
     @State private var showExternalDialog = false
     @State private var didCopyAll = false
+    @State private var searchText = ""
+    @State private var selectedKind: MediaKind?
+    @State private var selectedCategory: MediaCategory?
+    @State private var visibleLimit = 80
+    @State private var downloadMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -384,9 +408,13 @@ struct MediaListSheet: View {
                     Section {
                         emptyRow
                     }
+                } else if filteredItems.isEmpty {
+                    Section {
+                        noMatchRow
+                    }
                 } else {
                     Section {
-                        Text("共 \(sniffer.items.count) 个链接，已按类型分组，点按即可播放")
+                        Text("共 \(filteredItems.count) 个匹配（原始 \(sniffer.items.count) 个），点按即可播放")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -396,6 +424,16 @@ struct MediaListSheet: View {
                             ForEach(group.items) { item in
                                 row(for: item)
                                     .swipeActions(edge: .trailing) {
+                                        if item.kind == .mp4 {
+                                            Button {
+                                                DownloadManager.shared.start(item: item, referer: pageURL, title: item.fileName)
+                                                downloadMessage = "已开始下载 \(item.fileName)，可在“离线媒体库”查看"
+                                            } label: {
+                                                Label("下载", systemImage: "arrow.down.circle")
+                                            }
+                                            .tint(.green)
+                                        }
+
                                         Button {
                                             UIPasteboard.general.string = item.url.absoluteString
                                         } label: {
@@ -418,25 +456,51 @@ struct MediaListSheet: View {
                             }
                         }
                     }
+
+                    if filteredItems.count > visibleItems.count {
+                        Section {
+                            Button {
+                                visibleLimit += 80
+                            } label: {
+                                Label("加载更多（还有 \(filteredItems.count - visibleItems.count) 个）", systemImage: "chevron.down")
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                    }
                 }
             }
             .listStyle(.insetGrouped)
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索标题、域名或链接")
             .navigationTitle("识别到的视频")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("关闭") { dismiss() }
                 }
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Menu {
+                        Button("全部格式") { selectedKind = nil }
+                        ForEach(MediaKind.allCases, id: \.self) { kind in
+                            Button(kind.label) { selectedKind = kind }
+                        }
+                        Divider()
+                        Button("全部分类") { selectedCategory = nil }
+                        ForEach(MediaCategory.allCases) { category in
+                            Button(category.label) { selectedCategory = category }
+                        }
+                    } label: {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                    }
+
                     Button {
-                        UIPasteboard.general.string = sniffer.items
+                        UIPasteboard.general.string = filteredItems
                             .map { $0.url.absoluteString }
                             .joined(separator: "\n")
                         didCopyAll = true
                     } label: {
                         Image(systemName: didCopyAll ? "checkmark" : "doc.on.doc")
                     }
-                    .disabled(sniffer.items.isEmpty)
+                    .disabled(filteredItems.isEmpty)
                 }
             }
         }
@@ -459,6 +523,29 @@ struct MediaListSheet: View {
         } message: { item in
             Text(item.playability.hint)
         }
+        .alert("下载", isPresented: Binding(
+            get: { downloadMessage != nil },
+            set: { if !$0 { downloadMessage = nil } }
+        )) {
+            Button("好") { downloadMessage = nil }
+        } message: {
+            Text(downloadMessage ?? "")
+        }
+    }
+
+    private var filteredItems: [MediaItem] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return sniffer.items.filter { item in
+            if let selectedKind, item.kind != selectedKind { return false }
+            if let selectedCategory, item.category != selectedCategory { return false }
+            guard !query.isEmpty else { return true }
+            let haystack = [item.fileName, item.url.absoluteString, item.pageTitle, item.host].joined(separator: " ")
+            return haystack.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private var visibleItems: [MediaItem] {
+        Array(filteredItems.prefix(visibleLimit))
     }
 
     private var playableQueue: [MediaItem] {
@@ -474,9 +561,25 @@ struct MediaListSheet: View {
 
     private var groups: [CategoryGroup] {
         MediaCategory.allCases.compactMap { category in
-            let list = sniffer.items.filter { $0.category == category }
+            let list = visibleItems.filter { $0.category == category }
             return list.isEmpty ? nil : CategoryGroup(category: category, items: list)
         }
+    }
+
+    private var noMatchRow: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 30, weight: .light))
+                .foregroundStyle(.secondary)
+            Text("没有匹配的视频")
+                .font(.subheadline.weight(.medium))
+            Text("清空搜索词，或在右上角切换格式/分类筛选。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
     }
 
     private var emptyRow: some View {

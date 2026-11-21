@@ -101,6 +101,13 @@ enum RemoteImageLoader {
         originalCache.removeAllObjects()
     }
 
+    static func clearDiskCache() {
+        thumbnailCache.removeAllObjects()
+        originalCache.removeAllObjects()
+        session.configuration.urlCache?.removeAllCachedResponses()
+        URLCache.shared.removeAllCachedResponses()
+    }
+
     private static func fetchData(url: URL, referer: String?) async -> Data? {
         await loadLimiter.withPermit {
             await fetchDataWithoutPermit(url: url, referer: referer)

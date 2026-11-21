@@ -24,9 +24,10 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
+		<!-- 只放开网页内容和媒体播放；普通 URLSession 图片请求仍走 ATS。 -->
 		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+		<key>NSAllowsArbitraryLoadsForMedia</key>
 		<true/>
 	</dict>
 	<key>NSPhotoLibraryAddUsageDescription</key>
