@@ -20,21 +20,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Import 2.3 source if needed
+      - name: Import 2.4 source if needed
         env:
-          SOURCE_URL: 'https://aka.doubaocdn.com/s/sq5HxWOHBM'
-          SOURCE_SHA: 'bc9c5e3d36e0e9a9672fda5fa7f5e391a1ac5f8c4ead7236cd22021e1c8e665e'
+          SOURCE_URL: 'https://aka.doubaocdn.com/s/15yFvI5U2J'
+          SOURCE_SHA: 'ad935a35f2160d076071fb4d48e3bce15f01b43684e1233d17fd821f56feb50a'
         run: |
           set -euo pipefail
-          if ! grep -q 'MARKETING_VERSION = 2.3' VideoHunter.xcodeproj/project.pbxproj 2>/dev/null || [ ! -f VideoHunter/DownloadManager.swift ]; then
-            echo '2.3 source marker missing, importing verified archive'
+          if ! grep -q 'MARKETING_VERSION = 2.4' VideoHunter.xcodeproj/project.pbxproj 2>/dev/null || [ ! -f VideoHunter/DownloadManager.swift ]; then
+            echo '2.4 source marker missing, importing verified archive'
             curl -fL --retry 5 --retry-delay 3 --max-time 180 "$SOURCE_URL" -o "$RUNNER_TEMP/source.zip"
             printf '%s  %s\n' "$SOURCE_SHA" "$RUNNER_TEMP/source.zip" | shasum -a 256 -c -
             unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
             test -f "$RUNNER_TEMP/source/VideoHunter/DownloadManager.swift"
             test -f "$RUNNER_TEMP/source/VideoHunter/FramePolicy.swift"
             test -f "$RUNNER_TEMP/source/VideoHunter/PrivacyInfo.xcprivacy"
-            grep -q 'MARKETING_VERSION = 2.3' "$RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj"
+            grep -q 'MARKETING_VERSION = 2.4' "$RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj"
             grep -q 'vhRoute' "$RUNNER_TEMP/source/VideoHunter/InjectedScript.swift"
             rm -rf VideoHunter VideoHunter.xcodeproj scripts
             cp -R "$RUNNER_TEMP/source/VideoHunter" .
@@ -43,16 +43,19 @@ jobs:
             cp "$RUNNER_TEMP/source/README.md" .
             cp "$RUNNER_TEMP/source/.gitignore" .
           else
-            echo 'repo already contains 2.3 source, building repo HEAD'
+            echo 'repo already contains 2.4 source, building repo HEAD'
           fi
-          grep -q 'MARKETING_VERSION = 2.3' VideoHunter.xcodeproj/project.pbxproj || { echo 'version is not 2.3'; exit 1; }
+          grep -q 'MARKETING_VERSION = 2.4' VideoHunter.xcodeproj/project.pbxproj || { echo 'version is not 2.4'; exit 1; }
           test -f VideoHunter/DownloadManager.swift || { echo 'DownloadManager.swift missing'; exit 1; }
           test -f VideoHunter/FramePolicy.swift || { echo 'FramePolicy.swift missing'; exit 1; }
           test -f VideoHunter/LibraryView.swift || { echo 'LibraryView.swift missing'; exit 1; }
           test -f VideoHunter/PrivacyInfo.xcprivacy || { echo 'PrivacyInfo.xcprivacy missing'; exit 1; }
           grep -q 'vhRoute' VideoHunter/InjectedScript.swift || { echo 'SPA route script missing'; exit 1; }
-          grep -q 'AVAudioSession' VideoHunter/PlayerView.swift || { echo 'audio session code missing'; exit 1; }
+          grep -q 'AudioSession' VideoHunter/PlayerView.swift || { echo 'audio session code missing'; exit 1; }
           grep -q 'ImageIO' VideoHunter/RemoteImageLoader.swift || { echo 'image pipeline missing'; exit 1; }
+          grep -q 'background(withIdentifier:' VideoHunter/DownloadManager.swift || { echo 'background URLSession missing'; exit 1; }
+          grep -q 'handleEventsForBackgroundURLSession' VideoHunter/VideoHunterApp.swift || { echo 'background session app delegate missing'; exit 1; }
+          grep -q 'canStartPictureInPictureAutomaticallyFromInline' VideoHunter/PlayerView.swift || { echo 'auto PiP missing'; exit 1; }
 
       - name: Test injected script
         run: node scripts/test-injected.mjs
@@ -85,6 +88,6 @@ jobs:
           git add -A
           git add -f dist
           git rm -r --cached Payload >/dev/null 2>&1 || true
-          git commit -m 'build: 2.3 source and ipa [skip ci]' || echo nothing-to-commit
+          git commit -m 'build: 2.4 source and ipa [skip ci]' || echo nothing-to-commit
           git push origin HEAD:main || echo push-failed
           [ $STATUS = 0 ] || exit 1
