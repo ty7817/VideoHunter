@@ -656,10 +656,11 @@ struct PlayerScreen: View {
     // MARK: - 画中画 / 音频
 
     private func setupPictureInPicture(_ layer: AVPlayerLayer) {
+        // 2.4-pip-fixed: failable initializer must be unwrapped.
         DispatchQueue.main.async {
             guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
-            if pipController == nil {
-                let controller = AVPictureInPictureController(playerLayer: layer)
+            if pipController == nil,
+               let controller = AVPictureInPictureController(playerLayer: layer) {
                 // 系统允许时，App 切到后台后自动接续为画中画；用户仍可手动点 PiP 按钮。
                 controller.canStartPictureInPictureAutomaticallyFromInline = true
                 pipController = controller
