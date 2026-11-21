@@ -1,0 +1,78 @@
+name: Build 2.6 IPA
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: [dist/**]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build26
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Import 2.6 source
+        env:
+          SOURCE_URL: 'https://aka.doubaocdn.com/s/4zyiQ4qLvk'
+          SOURCE_SHA: '795a68f5d156b58e7d1f36cb93918a67660d2de5daa56a247051ac7831b29232'
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 3 --max-time 180 "$SOURCE_URL" -o "$RUNNER_TEMP/source.zip"
+          printf '%s  %s\n' "$SOURCE_SHA" "$RUNNER_TEMP/source.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
+          test -f "$RUNNER_TEMP/source/VideoHunter/SettingsView.swift"
+          grep -q '2.6-window-settings' "$RUNNER_TEMP/source/VideoHunter/SettingsView.swift"
+          grep -q 'UIApplicationSupportsMultipleScenes' "$RUNNER_TEMP/source/VideoHunter/Info.plist"
+          rm -rf VideoHunter VideoHunter.xcodeproj scripts
+          cp -R "$RUNNER_TEMP/source/VideoHunter" .
+          cp -R "$RUNNER_TEMP/source/VideoHunter.xcodeproj" .
+          cp -R "$RUNNER_TEMP/source/scripts" .
+          cp "$RUNNER_TEMP/source/README.md" .
+          cp "$RUNNER_TEMP/source/.gitignore" .
+          grep -q 'MARKETING_VERSION = 2.6' VideoHunter.xcodeproj/project.pbxproj
+          grep -q 'WindowSupport' VideoHunter/SettingsView.swift
+          grep -q 'SettingsWindowView' VideoHunter/SettingsView.swift
+
+      - name: Test injected script
+        run: node scripts/test-injected.mjs
+
+      - name: Build and publish
+        run: |
+          set +e
+          xcodebuild -version
+          xcodebuild -project VideoHunter.xcodeproj -target VideoHunter -configuration Release -sdk iphoneos SYMROOT=$RUNNER_TEMP/build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > $RUNNER_TEMP/build.log 2>&1
+          STATUS=$?
+          echo $STATUS > $RUNNER_TEMP/status
+          tail -n 240 $RUNNER_TEMP/build.log
+          mkdir -p dist
+          cp $RUNNER_TEMP/build.log dist/build.log
+          echo $STATUS > dist/status.txt
+          if [ $STATUS = 0 ]; then
+            APP=$(find $RUNNER_TEMP/build -maxdepth 3 -name VideoHunter.app | head -1)
+            echo app=$APP
+            test -n "$APP" || { echo 'VideoHunter.app missing'; STATUS=1; echo 1 > dist/status.txt; }
+          fi
+          if [ $STATUS = 0 ]; then
+            rm -rf Payload
+            mkdir -p Payload
+            cp -R "$APP" Payload/
+            zip -qry dist/VideoHunter-unsigned.ipa Payload
+          fi
+          ls -lh dist
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git add -f dist
+          git rm -r --cached Payload >/dev/null 2>&1 || true
+          git commit -m 'build: 2.6 standalone settings and multi-window [skip ci]' || echo nothing-to-commit
+          git push origin HEAD:main || echo push-failed
+          [ $STATUS = 0 ] || exit 1
