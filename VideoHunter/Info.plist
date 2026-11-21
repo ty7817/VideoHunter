@@ -32,6 +32,7 @@
 	</dict>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>用于把网页原图保存到你的相册。</string>
+	<!-- audio 同时覆盖后台音频、AirPlay 和 Picture in Picture；App 内还有 background URLSession 负责下载。 -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

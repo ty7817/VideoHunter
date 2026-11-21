@@ -13,8 +13,8 @@ final class MediaSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
 
     static let handlerName = "vhMedia"
 
-    /// 单个页面最多保留多少条，避免某些站点把列表撑爆。
-    private static let maxItems = 200
+    /// 单个页面最多保留多少条，避免某些站点把列表撑爆；上限可在设置中心调整。
+    private static var maxItems: Int { max(50, AppSettings.shared.maxVideoItems) }
 
     @Published private(set) var items: [MediaItem] = []
 
@@ -139,7 +139,7 @@ final class MediaSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
     }
 
     private func flush() {
-        let snapshot = order.compactMap { store[$0] }.sorted(by: Self.isOrderedBefore)
+        let snapshot = Array(order.compactMap { store[$0] }.sorted(by: Self.isOrderedBefore).prefix(Self.maxItems))
         if snapshot != items {
             items = snapshot
         }
@@ -149,13 +149,22 @@ final class MediaSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
         if lhs.playability.rank != rhs.playability.rank {
             return lhs.playability.rank < rhs.playability.rank
         }
-        if lhs.kind.rank != rhs.kind.rank {
-            return lhs.kind.rank < rhs.kind.rank
+        let lhsKindRank = preferredRank(lhs.kind)
+        let rhsKindRank = preferredRank(rhs.kind)
+        if lhsKindRank != rhsKindRank {
+            return lhsKindRank < rhsKindRank
         }
         if lhs.createdAt != rhs.createdAt {
             return lhs.createdAt < rhs.createdAt
         }
         return lhs.key < rhs.key
+    }
+
+    private static func preferredRank(_ kind: MediaKind) -> Int {
+        if AppSettings.shared.preferHLS { return kind.rank }
+        if kind == .mp4 { return 0 }
+        if kind == .hls { return 1 }
+        return kind.rank
     }
 
     // MARK: - 类型判断

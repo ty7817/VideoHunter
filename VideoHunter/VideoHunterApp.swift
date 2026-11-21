@@ -32,6 +32,17 @@ struct VideoHunterApp: App {
     init() {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .moviePlayback, options: [])
+
+        // 2.5：把持久化的图片并发和缓存预算应用到运行时。
+        let settings = AppSettings.shared
+        RemoteImageLoader.applyCacheLimits(
+            thumbnailMB: settings.thumbnailCacheMB,
+            originalMB: settings.originalCacheMB
+        )
+        VideoFrameStore.applyCacheLimit(settings.videoFrameCacheMB)
+        Task {
+            await RemoteImageLoader.updateConcurrency(settings.imageConcurrency)
+        }
     }
 
     var body: some Scene {

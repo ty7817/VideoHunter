@@ -67,6 +67,7 @@ struct PlayerScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var settings = AppSettings.shared
 
     @State private var index: Int
     @State private var player: AVPlayer?
@@ -82,6 +83,8 @@ struct PlayerScreen: View {
     @State private var didCopy = false
     @State private var wasPlayingBeforeInterruption = false
     @State private var wasPlayingBeforeRouteChange = false
+    @State private var showSettings = false
+    @State private var showPlaybackInfo = false
 
     @State private var timeObserver: Any?
     @State private var observations: [NSKeyValueObservation] = []
@@ -97,6 +100,8 @@ struct PlayerScreen: View {
         self.playlist = queue
         let start = queue.firstIndex(where: { $0.id == item.id }) ?? 0
         _index = State(initialValue: start)
+        _rate = State(initialValue: AppSettings.shared.playerRate.rawValue)
+        _fillScreen = State(initialValue: AppSettings.shared.fillMode == .fill)
     }
 
     private var currentItem: MediaItem {
@@ -139,7 +144,8 @@ struct PlayerScreen: View {
                             let horizontal = abs(value.translation.width)
                             let vertical = abs(value.translation.height)
                             guard horizontal > vertical else { return }
-                            let delta = Double(value.translation.width) / 6.0
+                            // 以“每 120pt 对应一个快进步长”换算，步长由设置中心控制。
+                            let delta = Double(value.translation.width) * Double(settings.seekStep.rawValue) / 120.0
                             seek(to: position + delta)
                             revealControls()
                         }
@@ -169,14 +175,19 @@ struct PlayerScreen: View {
         .onChange(of: scenePhase) { phase in
             switch phase {
             case .background:
-                if isPlaying, let player {
-                    player.play()
-                    player.rate = rate
-                }
-                // 允许画中画：系统支持时，切后台立即尝试进入 PiP；
-                // 同时 setupPictureInPicture 里打开了自动 PiP，双保险。
-                if isPlaying {
-                    startPictureInPictureIfPossible()
+                if settings.backgroundPlayback {
+                    if isPlaying, let player {
+                        player.play()
+                        player.rate = rate
+                    }
+                    // 允许画中画：系统支持时，切后台立即尝试进入 PiP；
+                    // 同时 setupPictureInPicture 里打开了自动 PiP，双保险。
+                    if isPlaying {
+                        startPictureInPictureIfPossible()
+                    }
+                } else if isPlaying {
+                    player?.pause()
+                    isPlaying = false
                 }
                 updateNowPlayingInfo()
             case .active:
@@ -194,6 +205,14 @@ struct PlayerScreen: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)) { note in
             handleAudioRouteChange(note)
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
+        .sheet(isPresented: $showPlaybackInfo) {
+            NavigationStack {
+                PlaybackInfoView()
+            }
         }
     }
 
@@ -248,7 +267,7 @@ struct PlayerScreen: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(currentItem.fileName)
+                Text(currentItem.displayName)
                     .font(.footnote.weight(.semibold))
                     .lineLimit(1)
                 Text("\(currentItem.category.label) · \(currentItem.kind.label) · \(currentItem.host)")
@@ -280,6 +299,16 @@ struct PlayerScreen: View {
                     reload()
                 } label: {
                     Label("重新加载", systemImage: "arrow.clockwise")
+                }
+                Button {
+                    showPlaybackInfo = true
+                } label: {
+                    Label("播放信息", systemImage: "waveform.path.ecg")
+                }
+                Button {
+                    showSettings = true
+                } label: {
+                    Label("设置中心", systemImage: "gearshape.2")
                 }
                 if canGoNext {
                     Button {
@@ -443,7 +472,7 @@ struct PlayerScreen: View {
 
     private func start() {
         guard player == nil else { return }
-        UIApplication.shared.isIdleTimerDisabled = true
+        UIApplication.shared.isIdleTimerDisabled = settings.keepScreenAwake
         activateAudioSession()
         startRemoteControls()
         buildPlayer(for: currentItem)
@@ -474,6 +503,7 @@ struct PlayerScreen: View {
 
         let newPlayer = Self.makePlayer(for: media, referer: media.frameURL ?? referer)
         player = newPlayer
+        PlaybackSession.shared.record(media)
         observe(newPlayer)
         attachTimeObserver(newPlayer)
         newPlayer.play()
@@ -499,6 +529,7 @@ struct PlayerScreen: View {
         isPlaying = false
         isBuffering = false
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        PlaybackSession.shared.clearCurrent()
         if let pip = pipController, pip.isPictureInPictureActive {
             pip.stopPictureInPicture()
         }
@@ -613,14 +644,24 @@ struct PlayerScreen: View {
     }
 
     private func handlePlaybackEnd() {
-        if canGoNext {
+        if settings.autoPlayNext, canGoNext {
             index += 1
-        } else {
-            isPlaying = false
-            position = duration
+            return
+        }
+        if settings.loopPlayback, let player {
+            player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+            player.play()
+            player.rate = rate
+            isPlaying = true
+            position = 0
             updateNowPlayingInfo()
             revealControls()
+            return
         }
+        isPlaying = false
+        position = duration
+        updateNowPlayingInfo()
+        revealControls()
     }
 
     // MARK: - 控制条显隐
@@ -643,14 +684,15 @@ struct PlayerScreen: View {
 
     private func scheduleControlHide() {
         hideWork?.cancel()
-        guard isPlaying, errorText == nil else { return }
+        guard settings.autoHideControls, isPlaying, errorText == nil else { return }
+        let delay = max(1.0, settings.autoHideDelay)
         let work = DispatchWorkItem {
             withAnimation(.easeOut(duration: 0.25)) {
                 showControls = false
             }
         }
         hideWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     // MARK: - 画中画 / 音频
@@ -662,7 +704,7 @@ struct PlayerScreen: View {
             if pipController == nil,
                let controller = AVPictureInPictureController(playerLayer: layer) {
                 // 系统允许时，App 切到后台后自动接续为画中画；用户仍可手动点 PiP 按钮。
-                controller.canStartPictureInPictureAutomaticallyFromInline = true
+                controller.canStartPictureInPictureAutomaticallyFromInline = AppSettings.shared.autoPictureInPicture
                 pipController = controller
             }
         }
@@ -698,7 +740,9 @@ struct PlayerScreen: View {
         case .ended:
             let optionsRaw = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let options = AVAudioSession.InterruptionOptions(rawValue: optionsRaw)
-            let shouldResume = wasPlayingBeforeInterruption && options.contains(.shouldResume)
+            let shouldResume = AppSettings.shared.resumeAfterInterruption
+                && wasPlayingBeforeInterruption
+                && options.contains(.shouldResume)
             wasPlayingBeforeInterruption = false
             if shouldResume {
                 activateAudioSession()
@@ -722,7 +766,7 @@ struct PlayerScreen: View {
             isPlaying = false
             updateNowPlayingInfo()
             // 耳机拔出后继续外放播放；与系统默认“直接暂停”不同，这里按用户要求恢复。
-            if wasPlayingBeforeRouteChange {
+            if wasPlayingBeforeRouteChange, AppSettings.shared.resumeAfterHeadphoneUnplug {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [self] in
                     guard scenePhase == .active, wasPlayingBeforeRouteChange, player != nil else { return }
                     activateAudioSession()
@@ -734,7 +778,9 @@ struct PlayerScreen: View {
                 }
             }
         case .newDeviceAvailable:
-            if wasPlayingBeforeRouteChange, scenePhase == .active {
+            if wasPlayingBeforeRouteChange,
+               AppSettings.shared.resumeAfterHeadphoneUnplug,
+               scenePhase == .active {
                 activateAudioSession()
                 player?.play()
                 player?.rate = rate
@@ -756,7 +802,7 @@ struct PlayerScreen: View {
         }
         var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
         let media = currentItem
-        info[MPMediaItemPropertyTitle] = media.fileName
+        info[MPMediaItemPropertyTitle] = media.displayName
         info[MPMediaItemPropertyArtist] = media.pageTitle.isEmpty ? "视频猎手" : media.pageTitle
         info[MPMediaItemPropertyAlbumTitle] = media.category.label
         info[MPMediaItemPropertyPlaybackDuration] = duration
@@ -903,7 +949,7 @@ struct PlayerScreen: View {
         let player = AVPlayer(playerItem: AVPlayerItem(asset: asset))
         player.allowsExternalPlayback = true
         player.preventsDisplaySleepDuringVideoPlayback = true
-        player.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
+        player.audiovisualBackgroundPlaybackPolicy = AppSettings.shared.backgroundPlayback ? .continuesIfPossible : .automatic
         return player
     }
 }

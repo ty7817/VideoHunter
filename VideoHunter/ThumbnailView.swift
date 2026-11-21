@@ -11,12 +11,16 @@ import UIKit
 import AVFoundation
 
 enum ThumbnailStore {
+    static var maxWidth: CGFloat {
+        AppSettings.shared.thumbnailSize.thumbnailMaxWidth
+    }
+
     static func cached(for url: URL) -> UIImage? {
-        RemoteImageLoader.cachedThumbnail(for: url, maxWidth: 300)
+        RemoteImageLoader.cachedThumbnail(for: url, maxWidth: maxWidth)
     }
 
     static func load(for url: URL, referer: String?) async -> UIImage? {
-        await RemoteImageLoader.thumbnail(for: url, referer: referer, maxWidth: 300)
+        await RemoteImageLoader.thumbnail(for: url, referer: referer, maxWidth: maxWidth)
     }
 }
 
@@ -27,6 +31,10 @@ enum VideoFrameStore {
         cache.totalCostLimit = 24 * 1024 * 1024
         return cache
     }()
+
+    static func applyCacheLimit(_ megabytes: Int) {
+        cache.totalCostLimit = max(8, megabytes) * 1024 * 1024
+    }
     private static let frameLimiter = AsyncLimiter(limit: 2)
 
     static func frame(for item: MediaItem) async -> UIImage? {
@@ -82,9 +90,10 @@ enum VideoFrameStore {
 
 struct MediaThumbnail: View {
     let item: MediaItem
-    var width: CGFloat = 64
-    var height: CGFloat = 40
+    var width: CGFloat = 0
+    var height: CGFloat = 0
 
+    @ObservedObject private var settings = AppSettings.shared
     @State private var image: UIImage?
     @State private var loading = false
     @State private var failed = false
@@ -108,7 +117,7 @@ struct MediaThumbnail: View {
                     .foregroundStyle(MediaRowView.tint(item.kind))
             }
         }
-        .frame(width: width, height: height)
+        .frame(width: resolvedWidth, height: resolvedHeight)
         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 7, style: .continuous)
@@ -119,11 +128,24 @@ struct MediaThumbnail: View {
         }
     }
 
+    private var resolvedWidth: CGFloat {
+        width > 0 ? width : settings.thumbnailSize.width
+    }
+
+    private var resolvedHeight: CGFloat {
+        height > 0 ? height : settings.thumbnailSize.height
+    }
+
     private func loadThumbnail() async {
         // 列表复用时先把旧图清掉，避免新条目瞬间闪出上一条视频的封面。
         image = nil
         loading = true
         failed = false
+
+        guard settings.loadVideoThumbnails else {
+            loading = false
+            return
+        }
 
         if let url = item.thumbnailURL {
             if let cached = ThumbnailStore.cached(for: url) {

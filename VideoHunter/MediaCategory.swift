@@ -55,6 +55,7 @@ enum MediaClassifier {
     ]
 
     static func category(url: URL, fileName: String, pageTitle: String) -> MediaCategory {
+        guard AppSettings.shared.smartClassification else { return .other }
         var pathText = url.path.lowercased()
         if let query = url.query {
             pathText += "?" + query.lowercased()

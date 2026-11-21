@@ -96,6 +96,16 @@ final class CrawlWorker: NSObject {
         configuration.allowsInlineMediaPlayback = false
 
         let controller = WKUserContentController()
+        let scanInterval = AppSettings.shared.autoScan ? AppSettings.shared.scanInterval.rawValue : 0
+        let scanImages = AppSettings.shared.scanImages ? "true" : "false"
+        let prelude = "window.__vhScanInterval = \(scanInterval); window.__vhScanImages = \(scanImages);"
+        controller.addUserScript(
+            WKUserScript(
+                source: prelude,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false
+            )
+        )
         controller.addUserScript(
             WKUserScript(
                 source: InjectedScript.source,
@@ -949,6 +959,7 @@ extension CrawlWorker: WKScriptMessageHandler {
         ) else { return }
 
         if message.name == ImageSniffer.handlerName {
+            guard AppSettings.shared.scanImages, AppSettings.shared.scanSiteImages else { return }
             appendImage(body)
             return
         }

@@ -9,35 +9,40 @@ import SwiftUI
 
 struct MediaRowView: View {
     let item: MediaItem
+    @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
         HStack(spacing: 12) {
             MediaThumbnail(item: item)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(item.fileName)
-                    .font(.subheadline.weight(.medium))
+                Text(item.displayName)
+                    .font(settings.listDensity.titleFont)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
                 HStack(spacing: 5) {
-                    Text(item.category.label)
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Self.categoryColor(item.category).opacity(0.14), in: Capsule())
-                        .foregroundStyle(Self.categoryColor(item.category))
+                    if settings.showCategoryBadges {
+                        Text(item.category.label)
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Self.categoryColor(item.category).opacity(0.14), in: Capsule())
+                            .foregroundStyle(Self.categoryColor(item.category))
+                    }
 
                     Text(item.kind.label)
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
 
-                    Text(item.host)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    if settings.showHost {
+                        Text(item.host)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
 
-                    if item.isIframe {
+                    if item.isIframe, settings.showIframeBadges {
                         Text("iframe")
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 5)
@@ -54,7 +59,7 @@ struct MediaRowView: View {
                 .font(.system(size: 22))
                 .foregroundStyle(item.playability == .native ? Color.accentColor : Color.secondary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, settings.listDensity.verticalPadding)
         .contentShape(Rectangle())
     }
 

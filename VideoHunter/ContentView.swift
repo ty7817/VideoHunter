@@ -13,6 +13,7 @@ struct ContentView: View {
     @StateObject private var controller = BrowserController()
     @StateObject private var siteCrawler = SiteCrawler()
     @StateObject private var downloads = DownloadManager.shared
+    @ObservedObject private var settings = AppSettings.shared
     @State private var input = ""
     @FocusState private var addressFocused: Bool
     @State private var activeSheet: ActiveSheet?
@@ -24,6 +25,7 @@ struct ContentView: View {
         case siteScan
         case plugins
         case library
+        case settings
 
         var id: String { rawValue }
     }
@@ -54,6 +56,8 @@ struct ContentView: View {
                 PluginListView()
             case .library:
                 LibraryView(downloads: downloads)
+            case .settings:
+                SettingsView()
             }
         }
         .overlay(alignment: .bottom) {
@@ -69,6 +73,8 @@ struct ContentView: View {
                 flash(value)
             }
         }
+        .preferredColorScheme(settings.theme.colorScheme)
+        .tint(settings.accent.color)
     }
 
     // MARK: - 顶部地址栏
@@ -285,6 +291,11 @@ struct ContentView: View {
                     )
                 }
                 Button {
+                    activeSheet = .settings
+                } label: {
+                    Label("设置中心", systemImage: "gearshape.2")
+                }
+                Button {
                     activeSheet = .plugins
                 } label: {
                     Label("插件管理", systemImage: "puzzlepiece.extension")
@@ -295,8 +306,10 @@ struct ContentView: View {
                     Label("离线媒体库（\(downloads.records.count)）", systemImage: "arrow.down.circle")
                 }
                 Button {
-                    controller.setAllowCrossSiteFrames(!controller.allowCrossSiteFrames)
-                    flash(controller.allowCrossSiteFrames ? "已包含跨站 iframe，正在重新扫描" : "已过滤跨站 iframe")
+                    let next = !controller.allowCrossSiteFrames
+                    settings.includeCrossSiteFrames = next
+                    controller.setAllowCrossSiteFrames(next)
+                    flash(next ? "已包含跨站 iframe，正在重新扫描" : "已过滤跨站 iframe")
                 } label: {
                     Label(
                         controller.allowCrossSiteFrames ? "只扫描同站 iframe" : "包含跨站 iframe",

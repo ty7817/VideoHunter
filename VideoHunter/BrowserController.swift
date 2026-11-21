@@ -38,6 +38,7 @@ final class BrowserController: NSObject, ObservableObject {
     private var snifferSubscription: AnyCancellable?
     private var imageSnifferSubscription: AnyCancellable?
     private var pluginObserver: NSObjectProtocol?
+    private var crossSiteObserver: NSObjectProtocol?
     private var routeProxy: WeakScriptMessageHandler?
     private var pageBaseGeneration = 0
 
@@ -48,6 +49,7 @@ final class BrowserController: NSObject, ObservableObject {
 
     override init() {
         super.init()
+        allowCrossSiteFrames = AppSettings.shared.includeCrossSiteFrames
 
         let configuration = WKWebViewConfiguration()
         configuration.allowsInlineMediaPlayback = true
@@ -93,6 +95,15 @@ final class BrowserController: NSObject, ObservableObject {
             }
         }
 
+        crossSiteObserver = NotificationCenter.default.addObserver(
+            forName: .vhCrossSiteChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            self.setAllowCrossSiteFrames(AppSettings.shared.includeCrossSiteFrames)
+        }
+
         setupObservers()
 
         // 让 ContentView 能感知 sniffer.items 的变化。
@@ -106,6 +117,9 @@ final class BrowserController: NSObject, ObservableObject {
 
     deinit {
         if let observer = pluginObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = crossSiteObserver {
             NotificationCenter.default.removeObserver(observer)
         }
         observations.forEach { $0.invalidate() }
@@ -122,7 +136,9 @@ final class BrowserController: NSObject, ObservableObject {
     private func applyUserScripts() {
         let controller = webView.configuration.userContentController
         controller.removeAllUserScripts()
-        let prelude = "window.__vhBaseGeneration = \(pageBaseGeneration);"
+        let scanInterval = AppSettings.shared.autoScan ? AppSettings.shared.scanInterval.rawValue : 0
+        let scanImages = AppSettings.shared.scanImages ? "true" : "false"
+        let prelude = "window.__vhBaseGeneration = \(pageBaseGeneration); window.__vhScanInterval = \(scanInterval); window.__vhScanImages = \(scanImages);"
         controller.addUserScript(
             WKUserScript(
                 source: prelude,

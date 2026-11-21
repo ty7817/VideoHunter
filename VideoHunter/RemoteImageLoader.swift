@@ -4,14 +4,31 @@ import ImageIO
 
 /// 限制图片/视频首帧的同时加载数量，避免快速滚动时打满网络和 CPU。
 actor AsyncLimiter {
-    private let limit: Int
+    private var limit: Int
     private var available: Int
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
     init(limit: Int) {
-        let safeLimit = max(1, limit)
+        let safeLimit = max(1, min(6, limit))
         self.limit = safeLimit
         self.available = safeLimit
+    }
+
+    func updateLimit(_ newValue: Int) {
+        let safe = max(1, min(6, newValue))
+        guard safe != limit else { return }
+        if safe > limit {
+            available += safe - limit
+            limit = safe
+            while available > 0, !waiters.isEmpty {
+                available -= 1
+                waiters.removeFirst().resume()
+            }
+        } else {
+            let reduction = limit - safe
+            available = max(0, available - reduction)
+            limit = safe
+        }
     }
 
     func withPermit<T>(_ operation: () async -> T) async -> T {
@@ -41,9 +58,9 @@ actor AsyncLimiter {
 }
 
 enum RemoteImageLoader {
-    /// 图片/视频预览图同时最多 4 路请求。
-    private static let loadLimiter = AsyncLimiter(limit: 4)
-    private static let maxOriginalPixelSize: CGFloat = 3072
+    /// 图片/视频预览图同时请求数量，跟随设置中心的「图片并发」。
+    private static let loadLimiter = AsyncLimiter(limit: AppSettings.shared.imageConcurrency)
+    private static var maxOriginalPixelSize: CGFloat { AppSettings.shared.imageQuality.maxPixelSize }
     private static let maxDownloadBytes = 30 * 1024 * 1024
 
     static let thumbnailCache: NSCache<NSString, UIImage> = {
@@ -79,7 +96,7 @@ enum RemoteImageLoader {
     }
 
     static func image(for url: URL, referer: String?) async -> UIImage? {
-        let key = url.absoluteString as NSString
+        let key = "\(url.absoluteString)|\(Int(maxOriginalPixelSize))" as NSString
         if let cached = originalCache.object(forKey: key) { return cached }
         guard let data = await fetchData(url: url, referer: referer),
               let image = decodedImage(from: data, maxPixelSize: maxOriginalPixelSize) else { return nil }
@@ -94,6 +111,15 @@ enum RemoteImageLoader {
               let image = decodedImage(from: data, maxPixelSize: thumbnailPixelSize(for: maxWidth)) else { return nil }
         thumbnailCache.setObject(image, forKey: key, cost: cost(of: image))
         return image
+    }
+
+    static func updateConcurrency(_ value: Int) async {
+        await loadLimiter.updateLimit(value)
+    }
+
+    static func applyCacheLimits(thumbnailMB: Int, originalMB: Int) {
+        thumbnailCache.totalCostLimit = max(12, thumbnailMB) * 1024 * 1024
+        originalCache.totalCostLimit = max(24, originalMB) * 1024 * 1024
     }
 
     static func clearMemory() {

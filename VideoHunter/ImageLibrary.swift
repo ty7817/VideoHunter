@@ -160,7 +160,7 @@ enum ImageClassifier {
 
 final class ImageSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
     static let handlerName = "vhImage"
-    private static let maxItems = 300
+    private static var maxItems: Int { max(100, AppSettings.shared.maxImageItems) }
 
     @Published private(set) var items: [ImageItem] = []
 
@@ -190,6 +190,7 @@ final class ImageSniffer: NSObject, ObservableObject, WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
         guard message.name == Self.handlerName,
+              AppSettings.shared.scanImages,
               let body = message.body as? [String: Any] else { return }
         if let incoming = body["generation"] as? NSNumber {
             let value = incoming.intValue

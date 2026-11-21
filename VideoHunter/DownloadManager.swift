@@ -138,6 +138,7 @@ final class DownloadManager: NSObject, ObservableObject {
         guard !activeKeys.contains(key), !hasRecord(for: item) else { return }
 
         var request = URLRequest(url: item.url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
+        request.allowsCellularAccess = AppSettings.shared.allowCellularDownloads
         request.setValue(BrowserController.mobileUserAgentString, forHTTPHeaderField: "User-Agent")
         request.setValue("video/mp4,video/*;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
         if let referer, !referer.isEmpty {

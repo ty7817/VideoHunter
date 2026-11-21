@@ -112,7 +112,8 @@ final class PluginStore: ObservableObject {
     }
 
     func userScripts() -> [WKUserScript] {
-        enabledPlugins.compactMap { $0.makeUserScript() }
+        guard AppSettings.shared.pluginsEnabled else { return [] }
+        return enabledPlugins.compactMap { $0.makeUserScript() }
     }
 
     func add(_ plugin: UserPlugin) {

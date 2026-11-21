@@ -64,7 +64,8 @@ enum FramePolicy {
             return false
         }
 
-        if isAdFrame(host: frameHost, path: frameURL.path) {
+        if AppSettings.shared.filterAdFrames,
+           isAdFrame(host: frameHost, path: frameURL.path) {
             return false
         }
         if allowCrossSite { return true }

@@ -188,6 +188,7 @@ enum InjectedScript {
   }
 
   function scanImages() {
+    if (window.__vhScanImages === false) { return; }
     try {
       var metas = document.querySelectorAll('meta[property="og:image"], meta[name="og:image"], meta[name="twitter:image"], meta[property="twitter:image"]');
       for (var m = 0; m < metas.length && m < 6; m++) {
@@ -571,10 +572,16 @@ enum InjectedScript {
     });
   } catch (e) {}
 
-  setInterval(function () {
-    if (document.hidden) { return; }
-    fullScan();
-  }, 3000);
+  var scanIntervalSeconds = Number(window.__vhScanInterval);
+  if (!isFinite(scanIntervalSeconds) || scanIntervalSeconds < 0) {
+    scanIntervalSeconds = 3;
+  }
+  if (scanIntervalSeconds > 0) {
+    setInterval(function () {
+      if (document.hidden) { return; }
+      fullScan();
+    }, scanIntervalSeconds * 1000);
+  }
 
   window.__vhRescan = function () {
     try { scanScripts(); fullScan(); } catch (e) {}

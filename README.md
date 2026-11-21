@@ -177,6 +177,8 @@ xcodebuild -project VideoHunter.xcodeproj -target VideoHunter \
 - **2.2 修复**：iPad 分享 popover 崩溃；相册写入权限检查与失败提示；ImageIO 下采样解码、图片请求 4 路并发上限、原图 72 MB / 缩略图 36 MB / 视频首帧 24 MB 缓存上限；列表复用前清空旧图，避免闪图。
 - **2.3 边界**：离线下载只接受单文件 MP4；HLS 是多分片流，直接下载会得到一堆 `.ts`，因此不会伪装成“下载成功”。跨站 iframe 默认关闭，需要 YouTube/Bilibili 等嵌入内容时在菜单里打开。
 - **2.3 测试**：`node scripts/test-injected.mjs` 覆盖首屏上报、SPA 路由 generation 递增、旧页去重和路由后重扫；云端构建已执行该测试。
+- **2.4 验证**：2.4 / Build 8 在 Xcode 16.4 上 `BUILD SUCCEEDED`，21 个 Swift 文件全部参与编译；IPA 校验为 arm64、iOS 16.0、`UIBackgroundModes=audio`、`PrivacyInfo.xcprivacy` 已打包。
+- **2.4 边界**：background URLSession 由系统调度，不能保证固定时间完成；用户从多任务界面强制杀掉 App 后，系统不会继续下载。后台音频/PiP 需要保持播放器页面存在；整站扫描仍不能后台常驻。
 
 ---
 
