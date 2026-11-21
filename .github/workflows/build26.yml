@@ -26,7 +26,7 @@ jobs:
           SOURCE_SHA: '795a68f5d156b58e7d1f36cb93918a67660d2de5daa56a247051ac7831b29232'
         run: |
           set -euo pipefail
-          curl -fL --retry 5 --retry-delay 3 --max-time 180 "$SOURCE_URL" -o "$RUNNER_TEMP/source.zip"
+          curl --http1.1 -fL --retry 5 --retry-delay 3 --max-time 180 "$SOURCE_URL" -o "$RUNNER_TEMP/source.zip"
           printf '%s  %s\n' "$SOURCE_SHA" "$RUNNER_TEMP/source.zip" | shasum -a 256 -c -
           unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
           test -f "$RUNNER_TEMP/source/VideoHunter/SettingsView.swift"
