@@ -22,11 +22,11 @@ jobs:
 
       - name: Import 2.4 source if needed
         env:
-          SOURCE_URL: 'https://aka.doubaocdn.com/s/15yFvI5U2J'
-          SOURCE_SHA: 'ad935a35f2160d076071fb4d48e3bce15f01b43684e1233d17fd821f56feb50a'
+          SOURCE_URL: 'https://aka.doubaocdn.com/s/7Cjb9ZWsjr'
+          SOURCE_SHA: '92fc5ad5eedb6674e0412ff7a923d4be384b5e61e0f6a4ac1b67acdf821aecde'
         run: |
           set -euo pipefail
-          if ! grep -q 'MARKETING_VERSION = 2.4' VideoHunter.xcodeproj/project.pbxproj 2>/dev/null || [ ! -f VideoHunter/DownloadManager.swift ]; then
+          if ! grep -q 'MARKETING_VERSION = 2.4' VideoHunter.xcodeproj/project.pbxproj 2>/dev/null || [ ! -f VideoHunter/DownloadManager.swift ] || ! grep -q '2.4-pip-fixed' VideoHunter/PlayerView.swift 2>/dev/null; then
             echo '2.4 source marker missing, importing verified archive'
             curl -fL --retry 5 --retry-delay 3 --max-time 180 "$SOURCE_URL" -o "$RUNNER_TEMP/source.zip"
             printf '%s  %s\n' "$SOURCE_SHA" "$RUNNER_TEMP/source.zip" | shasum -a 256 -c -
@@ -36,6 +36,7 @@ jobs:
             test -f "$RUNNER_TEMP/source/VideoHunter/PrivacyInfo.xcprivacy"
             grep -q 'MARKETING_VERSION = 2.4' "$RUNNER_TEMP/source/VideoHunter.xcodeproj/project.pbxproj"
             grep -q 'vhRoute' "$RUNNER_TEMP/source/VideoHunter/InjectedScript.swift"
+            grep -q '2.4-pip-fixed' "$RUNNER_TEMP/source/VideoHunter/PlayerView.swift"
             rm -rf VideoHunter VideoHunter.xcodeproj scripts
             cp -R "$RUNNER_TEMP/source/VideoHunter" .
             cp -R "$RUNNER_TEMP/source/VideoHunter.xcodeproj" .
@@ -46,6 +47,7 @@ jobs:
             echo 'repo already contains 2.4 source, building repo HEAD'
           fi
           grep -q 'MARKETING_VERSION = 2.4' VideoHunter.xcodeproj/project.pbxproj || { echo 'version is not 2.4'; exit 1; }
+          grep -q '2.4-pip-fixed' VideoHunter/PlayerView.swift || { echo 'fixed PiP code missing'; exit 1; }
           test -f VideoHunter/DownloadManager.swift || { echo 'DownloadManager.swift missing'; exit 1; }
           test -f VideoHunter/FramePolicy.swift || { echo 'FramePolicy.swift missing'; exit 1; }
           test -f VideoHunter/LibraryView.swift || { echo 'LibraryView.swift missing'; exit 1; }
