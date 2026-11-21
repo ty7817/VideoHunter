@@ -3,6 +3,8 @@
 //  VideoHunter
 //
 //  2.3 新增：MP4 直链离线下载 + 本地媒体库。
+//  2.4：改用 background URLSession，App 进入后台后下载继续；
+//  任务元数据持久化到 downloads-jobs.json，App 被系统回收后也能恢复进度/落盘。
 //  HLS 由多个分片组成，暂不在这里伪装成“下载成功”；需要先转成单文件 MP4。
 //
 
@@ -47,7 +49,7 @@ struct DownloadRecord: Identifiable, Codable, Hashable {
     }
 }
 
-private struct DownloadJob {
+private struct DownloadJob: Codable {
     let key: String
     let sourceURL: String
     let title: String
@@ -59,6 +61,7 @@ private struct DownloadJob {
 final class DownloadManager: NSObject, ObservableObject {
 
     static let shared = DownloadManager()
+    static let backgroundSessionIdentifier = "com.example.videohunter.downloads"
 
     @Published private(set) var records: [DownloadRecord] = []
     @Published private(set) var progress: [String: Double] = [:]
@@ -68,29 +71,40 @@ final class DownloadManager: NSObject, ObservableObject {
     let mediaDirectory: URL
 
     private let recordsURL: URL
+    private let jobsURL: URL
     private let lock = NSLock()
-    private var jobs: [Int: DownloadJob] = [:]
+    private var jobs: [String: DownloadJob] = [:]
     private var session: URLSession!
+    private var backgroundCompletionHandler: (() -> Void)?
 
     override init() {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         mediaDirectory = base.appendingPathComponent("VideoHunterMedia", isDirectory: true)
         recordsURL = mediaDirectory.appendingPathComponent("downloads.json")
+        jobsURL = mediaDirectory.appendingPathComponent("downloads-jobs.json")
         super.init()
 
         try? FileManager.default.createDirectory(at: mediaDirectory, withIntermediateDirectories: true)
 
-        let configuration = URLSessionConfiguration.default
+        // background session：App 退到后台甚至被系统回收后，系统会继续下载并在事件到达时唤醒 App。
+        let configuration = URLSessionConfiguration.background(withIdentifier: Self.backgroundSessionIdentifier)
+        configuration.sessionSendsLaunchEvents = true
+        configuration.isDiscretionary = false
         configuration.httpCookieStorage = HTTPCookieStorage.shared
         configuration.httpShouldSetCookies = true
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.timeoutIntervalForRequest = 30
-        configuration.timeoutIntervalForResource = 3600
+        configuration.timeoutIntervalForResource = 86_400
         configuration.waitsForConnectivity = true
         configuration.allowsCellularAccess = true
         session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
 
+        loadJobs()
         loadRecords()
+        removeJobsForCompletedRecords()
+
+        activeKeys = Set(jobs.keys)
+        refreshActiveTasks()
     }
 
     // MARK: - 对外操作
@@ -128,10 +142,21 @@ final class DownloadManager: NSObject, ObservableObject {
         request.setValue("video/mp4,video/*;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
         if let referer, !referer.isEmpty {
             request.setValue(referer, forHTTPHeaderField: "Referer")
+            if let refererURL = URL(string: referer),
+               let scheme = refererURL.scheme,
+               let host = refererURL.host {
+                request.setValue("\(scheme)://\(host)", forHTTPHeaderField: "Origin")
+            }
+        }
+        // background session 下显式带 Cookie，避免部分站点依赖 Cookie 鉴权时 403。
+        if let cookies = HTTPCookieStorage.shared.cookies(for: item.url), !cookies.isEmpty {
+            let fields = HTTPCookie.requestHeaderFields(with: cookies)
+            if let cookie = fields["Cookie"] {
+                request.setValue(cookie, forHTTPHeaderField: "Cookie")
+            }
         }
 
         let fileName = Self.uniqueFileName(for: item.url)
-        let task = session.downloadTask(with: request)
         let job = DownloadJob(
             key: key,
             sourceURL: key,
@@ -141,11 +166,15 @@ final class DownloadManager: NSObject, ObservableObject {
             referer: referer
         )
 
-        lock.lock()
-        jobs[task.taskIdentifier] = job
-        lock.unlock()
-
+        let task = session.downloadTask(with: request)
         task.taskDescription = key
+
+        lock.lock()
+        jobs[key] = job
+        let snapshot = Array(jobs.values)
+        lock.unlock()
+        saveJobs(snapshot)
+
         activeKeys.insert(key)
         progress[key] = 0
         errors[key] = nil
@@ -173,18 +202,88 @@ final class DownloadManager: NSObject, ObservableObject {
         saveRecords()
     }
 
-    // MARK: - 任务完成后的文件落盘
-
-    private func job(for identifier: Int) -> DownloadJob? {
-        lock.lock()
-        defer { lock.unlock() }
-        return jobs[identifier]
+    func setBackgroundSessionCompletionHandler(_ handler: @escaping () -> Void) {
+        backgroundCompletionHandler = handler
     }
 
-    private func finishJob(_ identifier: Int) {
+    // MARK: - 任务元数据
+
+    private func job(for task: URLSessionTask) -> DownloadJob? {
+        guard let key = task.taskDescription else { return nil }
         lock.lock()
-        jobs.removeValue(forKey: identifier)
+        defer { lock.unlock() }
+        return jobs[key]
+    }
+
+    /// 系统在 App 被回收后重派任务时，内存里的 jobs 可能已经丢失；
+    /// 这里用 taskDescription + 原始请求重建一条最小任务，保证文件仍能落盘。
+    private func resolveJob(for task: URLSessionTask) -> DownloadJob? {
+        if let job = job(for: task) { return job }
+        guard let key = task.taskDescription, let url = task.originalRequest?.url else { return nil }
+
+        let job = DownloadJob(
+            key: key,
+            sourceURL: key,
+            title: url.lastPathComponent.isEmpty ? "离线视频" : url.lastPathComponent,
+            fileName: Self.uniqueFileName(for: url),
+            kindRaw: MediaKind.mp4.rawValue,
+            referer: nil
+        )
+
+        lock.lock()
+        jobs[key] = job
+        let snapshot = Array(jobs.values)
         lock.unlock()
+        saveJobs(snapshot)
+        return job
+    }
+
+    private func finishJob(_ key: String) {
+        lock.lock()
+        jobs.removeValue(forKey: key)
+        let snapshot = Array(jobs.values)
+        lock.unlock()
+        saveJobs(snapshot)
+    }
+
+    private func saveJobs(_ snapshot: [DownloadJob]) {
+        do {
+            let data = try JSONEncoder().encode(snapshot)
+            try data.write(to: jobsURL, options: .atomic)
+        } catch {
+            // 元数据写入失败不应影响系统后台任务本身。
+        }
+    }
+
+    private func loadJobs() {
+        guard let data = try? Data(contentsOf: jobsURL),
+              let decoded = try? JSONDecoder().decode([DownloadJob].self, from: data) else {
+            return
+        }
+        var loaded: [String: DownloadJob] = [:]
+        for job in decoded {
+            loaded[job.key] = job
+        }
+        jobs = loaded
+    }
+
+    private func removeJobsForCompletedRecords() {
+        let completed = Set(records.map { $0.sourceURL })
+        let remaining = jobs.values.filter { !completed.contains($0.sourceURL) }
+        if remaining.count != jobs.count {
+            jobs = Dictionary(uniqueKeysWithValues: remaining.map { ($0.key, $0) })
+            saveJobs(Array(jobs.values))
+        }
+    }
+
+    private func refreshActiveTasks() {
+        session.getAllTasks { [weak self] tasks in
+            guard let self else { return }
+            let keys = Set(tasks.compactMap { $0.taskDescription })
+            DispatchQueue.main.async {
+                self.activeKeys = keys
+            }
+        }
     }
 
     private func persist(record: DownloadRecord, key: String) {
@@ -237,7 +336,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
         totalBytesWritten: Int64,
         totalBytesExpectedToWrite: Int64
     ) {
-        guard let job = job(for: downloadTask.taskIdentifier) else { return }
+        guard let job = resolveJob(for: downloadTask) else { return }
         let value = totalBytesExpectedToWrite > 0
             ? Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
             : 0
@@ -247,7 +346,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
     }
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        guard let job = job(for: downloadTask.taskIdentifier) else { return }
+        guard let job = resolveJob(for: downloadTask) else { return }
         let destination = mediaDirectory.appendingPathComponent(job.fileName)
         do {
             if FileManager.default.fileExists(atPath: destination.path) {
@@ -278,28 +377,37 @@ extension DownloadManager: URLSessionDownloadDelegate {
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        guard let job = job(for: task.taskIdentifier) else { return }
-        finishJob(task.taskIdentifier)
+        guard let key = task.taskDescription else { return }
+        _ = resolveJob(for: task)
+        finishJob(key)
+
         if let error {
             let nsError = error as NSError
-            if nsError.code == NSURLErrorCancelled {
-                DispatchQueue.main.async {
-                    self.errors[job.key] = "下载已取消"
-                    self.activeKeys.remove(job.key)
+            DispatchQueue.main.async {
+                if nsError.code == NSURLErrorCancelled {
+                    self.errors[key] = "下载已取消"
+                } else {
+                    self.errors[key] = "下载失败：\(nsError.localizedDescription)"
                 }
-            } else {
-                DispatchQueue.main.async {
-                    self.errors[job.key] = "下载失败：\(nsError.localizedDescription)"
-                    self.activeKeys.remove(job.key)
-                }
+                self.activeKeys.remove(key)
             }
         } else {
             DispatchQueue.main.async {
-                if self.progress[job.key] != nil {
-                    self.progress[job.key] = 1
+                if self.progress[key] != nil {
+                    self.progress[key] = 1
                 }
-                self.activeKeys.remove(job.key)
+                self.activeKeys.remove(key)
             }
+        }
+
+        // 如果是后台会话，系统会在所有事件处理完之后回调 urlSessionDidFinishEvents。
+    }
+
+    func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
+        DispatchQueue.main.async {
+            let handler = self.backgroundCompletionHandler
+            self.backgroundCompletionHandler = nil
+            handler?()
         }
     }
 }

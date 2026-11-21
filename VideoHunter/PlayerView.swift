@@ -173,6 +173,11 @@ struct PlayerScreen: View {
                     player.play()
                     player.rate = rate
                 }
+                // 允许画中画：系统支持时，切后台立即尝试进入 PiP；
+                // 同时 setupPictureInPicture 里打开了自动 PiP，双保险。
+                if isPlaying {
+                    startPictureInPictureIfPossible()
+                }
                 updateNowPlayingInfo()
             case .active:
                 updateNowPlayingInfo()
@@ -652,17 +657,28 @@ struct PlayerScreen: View {
 
     private func setupPictureInPicture(_ layer: AVPlayerLayer) {
         DispatchQueue.main.async {
-            if pipController == nil, AVPictureInPictureController.isPictureInPictureSupported() {
-                pipController = AVPictureInPictureController(playerLayer: layer)
+            guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
+            if pipController == nil {
+                let controller = AVPictureInPictureController(playerLayer: layer)
+                // 系统允许时，App 切到后台后自动接续为画中画；用户仍可手动点 PiP 按钮。
+                controller.canStartPictureInPictureAutomaticallyFromInline = true
+                pipController = controller
             }
         }
+    }
+
+    private func startPictureInPictureIfPossible() {
+        guard let pip = pipController,
+              !pip.isPictureInPictureActive,
+              pip.isPictureInPicturePossible else { return }
+        pip.startPictureInPicture()
     }
 
     private func togglePictureInPicture() {
         guard let pip = pipController else { return }
         if pip.isPictureInPictureActive {
             pip.stopPictureInPicture()
-        } else {
+        } else if pip.isPictureInPicturePossible {
             pip.startPictureInPicture()
         }
     }

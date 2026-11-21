@@ -2,9 +2,39 @@
 
 输入一个网页链接，自动识别页面里所有能播放的视频地址，并直接用内置播放器播放。
 
+- 当前版本：**2.4 / Build 8**
 - 平台：iOS 16.0+（iPhone / iPad）
 - 形态：SwiftUI + WKWebView + AVPlayer，纯原生，无第三方依赖
 - 产物：完整 Xcode 工程，可直接编译；也提供 GitHub Actions 一键产出未签名 IPA
+
+---
+
+## 2.4 新增（本版本）
+
+| 能力 | 说明 |
+| --- | --- |
+| 后台运行（下载） | 离线下载改用 `URLSessionConfiguration.background`，切后台、锁屏或 App 被系统回收后由系统继续下载；App 被唤醒时通过 `handleEventsForBackgroundURLSession` 交还 completionHandler，任务元数据持久化到 `downloads-jobs.json`，重新启动后仍能落盘 |
+| 后台播放 | 保持 `UIBackgroundModes = audio`、`AVAudioSession .playback/.moviePlayback`、`audiovisualBackgroundPlaybackPolicy = .continuesIfPossible`；锁屏/切后台继续播放，保留 Now Playing 和远程控制 |
+| 画中画 | `AVPictureInPictureController` 手动 PiP，并打开 `canStartPictureInPictureAutomaticallyFromInline`；切后台时先尝试自动进入 PiP，不支持时仍可点播放器里的 PiP 按钮 |
+| 下载鉴权 | 后台下载请求显式携带页面 Cookie、Referer、Origin、移动端 UA，减少登录态/防盗链站点的 403 |
+
+> iOS 不允许普通 App 在后台无限运行。2.4 放开的是系统允许的三类：**后台音频/PiP** 和 **background URLSession 下载**；WKWebView 整站扫描仍必须在前台，进后台后系统会暂停网页加载。
+
+---
+
+## 2.3 新增（上一版）
+
+| 能力 | 说明 |
+| --- | --- |
+| SPA 路由监听 | Hook `pushState` / `replaceState` / `popstate` / `hashchange`；每次路由切换递增 generation，旧页面结果自动作废，不再把上一页视频留在列表里 |
+| Cookie 观察 | 监听 `WKHTTPCookieStore` 变化并同步到 `HTTPCookieStorage`；“清除 Cookie 与缓存”会同时清 WK 数据、系统 Cookie、`URLCache`、图片内存/磁盘缓存和视频首帧缓存 |
+| iframe 治理 | 消息带 `isIframe` 标记；默认过滤广告 iframe 与跨站 iframe，可在菜单里切换“包含跨站 iframe”，整站扫描同样适用 |
+| 音频中断恢复 | 电话/Siri 中断按系统 `shouldResume` 恢复；耳机拔出后按用户要求继续外放播放，新设备接入也会恢复 |
+| 搜索/筛选/分页 | 本页视频和整站结果都支持按标题、域名、链接搜索，按格式/分类筛选，每 80 条分批加载 |
+| 图片批量保存 | 图片页新增多选模式、全选、批量写入相册，并逐张报告成功/失败数量与权限问题 |
+| 整站图片扫描 | 扫描 worker 同时注册 `vhImage`，每页收集图片并按分类汇总；结果页新增“视频 / 图片”切换和图片全屏原图查看 |
+| 离线媒体库 | MP4 直链可下载到 Application Support 的本地媒体库，支持进度、失败提示、删除、离线播放；HLS/DASH/WebM 暂不支持直接离线 |
+| 工程治理 | 新增 `FramePolicy` / `DownloadManager` / `LibraryView` 拆文件；加入 `PrivacyInfo.xcprivacy`、收窄 ATS、Release 关闭 Web Inspector、注入脚本 Node 冒烟测试 |
 
 ---
 
@@ -24,9 +54,10 @@
 | 原图查看 | 点开图片进入全屏原图页，支持双指/双击缩放、拖动、保存到相册、复制链接、分享、Safari 打开 |
 | 回到主页 | 顶部地址栏左侧新增高亮「房子」按钮，一键停止加载并清空当前页的视频/图片识别结果 |
 | 后台播放 | 已配置后台音频 + `audiovisualBackgroundPlaybackPolicy`，锁屏/切后台继续播放；接入 Now Playing 与远程控制中心（播放、暂停、上一首/下一首、进度拖动） |
+| 后台下载 | 离线 MP4 使用 background URLSession，切后台/锁屏继续下载，重新唤醒后恢复落盘 |
 | 自动分类 | 按链接路径、文件名、页面标题判断电影 / 剧集 / 动漫 / 综艺 / 短视频 / 音乐 / 其他，本页列表按分类分节，整站结果可切「按分类 / 按页面」 |
 | 去重排序 | 按 URL 去重，HLS → MP4 → 其他，最多保留 200 条；自动过滤 `.ts` / `.m4s` 等 HLS 分片 |
-| 内置播放 | AVPlayer 播放 HLS / MP4，自动带 `Referer`、`Origin`、`User-Agent`，减少 403；支持全屏、画中画、AirPlay |
+| 内置播放 | AVPlayer 播放 HLS / MP4，自动带 `Referer`、`Origin`、`User-Agent`，减少 403；支持全屏、画中画（含切后台自动 PiP）、AirPlay |
 | 播放界面 | 自绘控制条：拖动进度、时间显示、0.5～2 倍速、画面适应/填充、双击播放暂停、横滑快进、控制条自动隐藏、上一个/下一个队列播放、失败重试 |
 | 直接链接 | 地址栏粘贴 `.m3u8` / `.mp4` 时，拦下导航直接进播放器，不在网页里显示一堆文本 |
 | Cookie 打通 | 网页登录后的 Cookie 同步到 `HTTPCookieStorage`，播放需要登录的源时可用 |
@@ -59,7 +90,11 @@ VideoHunter/
 │   ├── RemoteImageLoader.swift   # 带 Cookie/Referer 重试的图片下载器
 │   ├── PlayerView.swift          # 自绘播放界面（AVPlayerLayer + 控制条 + 后台播放）
 │   ├── InjectedScript.swift      # 注入网页的识别脚本（核心）
-│   └── Info.plist                # ATS 允许 http、后台音频（画中画）
+│   ├── FramePolicy.swift         # 广告/跨站 iframe 过滤
+│   ├── DownloadManager.swift     # MP4 离线下载与本地媒体库元数据
+│   ├── LibraryView.swift         # 离线媒体库界面
+│   ├── PrivacyInfo.xcprivacy     # 隐私清单
+│   └── Info.plist                # ATS 只放开网页内容与媒体，后台音频
 ├── .github/workflows/build.yml      # 云端打包未签名 IPA
 ├── scripts/build-ipa.sh             # macOS 本地一键打包
 └── README.md
@@ -135,11 +170,13 @@ xcodebuild -project VideoHunter.xcodeproj -target VideoHunter \
 - **首次打开可能识别为空**：很多站点要点击播放后才发起请求，先点一下页面里的播放按钮，再回列表点"重新扫描"。
 - **App Store 不会通过**：这类网页嗅探 + 播放器属于灰色地带，只适合自签自用，不要上传商店。
 - **整站扫描不是无限爬**：只跟随页面里的 `<a href>`，不解析 JS 里的路由跳转；默认 60 页 / 3 层，冷门页面可能扫不到。想覆盖更多就调高页数和层级；把并发调到 4 路会更快，但更吃内存和流量。
-- **扫描依赖前台运行**：iOS 会在 App 进入后台后暂停网页加载，扫描期间请保持前台、别锁屏。
+- **扫描依赖前台运行**：iOS 会在 App 进入后台后暂停网页加载，扫描期间请保持前台、别锁屏。2.4 的“后台运行”只覆盖后台音频/PiP 和 background URLSession 下载，不是让 WKWebView 常驻。
 - **预览图可能显示不出来**：部分站点对图片做了防盗链或需要登录 Cookie，下载失败时会回落到类型图标；`blob:`、画布渲染的视频也没有可用的封面图。
 - **分类是启发式的**：靠 URL 和标题关键词判断，命名不规范的站点可能分错，可在 `MediaCategory.swift` 的 `rules` 里补关键词。
-- **编译验证**：当前版本（2.2 / Build 6）在 GitHub Actions 的 macOS-15 + Xcode 16.4 上真实编译通过（`BUILD SUCCEEDED`），18 个 Swift 源文件全部参与编译，产物是未签名 IPA。
+- **编译验证**：当前版本（2.4 / Build 8）在 GitHub Actions 的 macOS-15 + Xcode 16.4 上真实编译通过（`BUILD SUCCEEDED`），21 个 Swift 源文件全部参与编译，注入脚本冒烟测试通过，产物是未签名 IPA。
 - **2.2 修复**：iPad 分享 popover 崩溃；相册写入权限检查与失败提示；ImageIO 下采样解码、图片请求 4 路并发上限、原图 72 MB / 缩略图 36 MB / 视频首帧 24 MB 缓存上限；列表复用前清空旧图，避免闪图。
+- **2.3 边界**：离线下载只接受单文件 MP4；HLS 是多分片流，直接下载会得到一堆 `.ts`，因此不会伪装成“下载成功”。跨站 iframe 默认关闭，需要 YouTube/Bilibili 等嵌入内容时在菜单里打开。
+- **2.3 测试**：`node scripts/test-injected.mjs` 覆盖首屏上报、SPA 路由 generation 递增、旧页去重和路由后重扫；云端构建已执行该测试。
 
 ---
 
